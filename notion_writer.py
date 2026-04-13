@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from notion_client import Client
 
 from config import Settings
-from content_generator import GeneratedContent
+from scorer import RankedCandidate
 
 
 class NotionWriter:
@@ -20,32 +19,36 @@ class NotionWriter:
         self.settings = settings
         self.logger = logger
 
-    def write_draft(self, content: GeneratedContent, source: str) -> bool:
-        created_at = datetime.now(self.settings.zoneinfo).isoformat()
-        hashtags = " ".join(content.hashtags)
-
+    def write_draft(self, candidate: RankedCandidate) -> bool:
+        hashtags = " ".join(candidate.hashtags)
         try:
             self.notion.pages.create(
                 parent={"database_id": self.settings.notion_database_id},
                 properties={
-                    "Title": {"title": [_text_block(content.title)]},
-                    "Topic": {"rich_text": [_text_block(content.topic)]},
-                    "Category": {"select": {"name": content.category}},
-                    "TemplateType": {"select": {"name": content.template_type}},
-                    "Cut1": {"rich_text": [_text_block(content.cut1)]},
-                    "Cut2": {"rich_text": [_text_block(content.cut2)]},
-                    "Cut3": {"rich_text": [_text_block(content.cut3)]},
-                    "Caption": {"rich_text": [_text_block(content.caption)]},
+                    "Title": {"title": [_text_block(candidate.title)]},
+                    "Topic": {"rich_text": [_text_block(candidate.topic)]},
+                    "Category": {"select": {"name": candidate.category}},
+                    "Cut1": {"rich_text": [_text_block(candidate.cut1)]},
+                    "Cut2": {"rich_text": [_text_block(candidate.cut2)]},
+                    "Cut3": {"rich_text": [_text_block(candidate.cut3)]},
+                    "Caption": {"rich_text": [_text_block(candidate.caption)]},
                     "Hashtags": {"rich_text": [_text_block(hashtags)]},
+                    "AIScore": {"number": candidate.ai_score},
+                    "Recommended": {"checkbox": candidate.recommended},
                     "Status": {"status": {"name": "Draft"}},
-                    "CreatedAt": {"date": {"start": created_at}},
-                    "Source": {"rich_text": [_text_block(source)]},
+                    "PreviewText": {"rich_text": [_text_block(candidate.preview_text)]},
+                    "PostDate": {"date": {"start": candidate.post_date}},
                 },
             )
-            self.logger.info("Notion 저장 성공 | title=%s", content.title)
+            self.logger.info(
+                "Notion 저장 성공 | title=%s | score=%s | recommended=%s",
+                candidate.title,
+                candidate.ai_score,
+                candidate.recommended,
+            )
             return True
         except Exception as error:  # noqa: BLE001
-            self.logger.error("Notion 저장 실패 | title=%s | %s", content.title, error)
+            self.logger.error("Notion 저장 실패 | title=%s | %s", candidate.title, error)
             return False
 
 

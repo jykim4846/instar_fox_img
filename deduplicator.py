@@ -57,8 +57,8 @@ class Deduplicator:
                 response = self.notion.databases.query(
                     database_id=self.settings.notion_database_id,
                     filter={
-                        "property": "CreatedAt",
-                        "date": {"on_or_after": cutoff_date.isoformat()},
+                        "timestamp": "created_time",
+                        "created_time": {"on_or_after": cutoff_date.isoformat()},
                     },
                     start_cursor=cursor,
                     page_size=100,

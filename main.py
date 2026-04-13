@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 
 from notion_client import Client
 
@@ -9,6 +10,7 @@ from content_generator import ContentGenerator
 from deduplicator import Deduplicator
 from logger import setup_logger
 from notion_writer import NotionWriter
+from scorer import RankedCandidate, build_preview_text, score_candidate
 from topic_filter import filter_topics
 from trend_collector import TrendCollector
 
@@ -48,14 +50,68 @@ def run() -> int:
     generator = ContentGenerator(settings=settings, logger=logger)
     writer = NotionWriter(notion=notion, settings=settings, logger=logger)
 
-    saved_count = 0
-    for topic in unique_topics[: settings.max_topics_per_run]:
+    ranked_candidates: list[RankedCandidate] = []
+    post_date = datetime.now(settings.zoneinfo).date().isoformat()
+
+    for topic in unique_topics:
+        if len(ranked_candidates) >= settings.max_topics_per_run:
+            break
+
         generated = generator.generate(topic)
         if generated is None:
             continue
 
-        source = f"{topic.source} | keyword={topic.keyword}"
-        saved = writer.write_draft(generated, source=source)
+        ai_score = score_candidate(generated, topic)
+        ranked_candidates.append(
+            RankedCandidate(
+                title=generated.title,
+                topic=generated.topic,
+                category=generated.category,
+                cut1=generated.cut1,
+                cut2=generated.cut2,
+                cut3=generated.cut3,
+                caption=generated.caption,
+                hashtags=generated.hashtags,
+                ai_score=ai_score,
+                recommended=False,
+                preview_text=build_preview_text(generated),
+                post_date=post_date,
+            )
+        )
+        logger.info("후보 생성 완료 | topic=%s | score=%s", topic.topic, ai_score)
+
+    if not ranked_candidates:
+        logger.warning("생성 가능한 후보가 없습니다.")
+        return 0
+
+    ranked_candidates.sort(key=lambda item: (-item.ai_score, item.title))
+    ranked_candidates = [
+        RankedCandidate(
+            title=item.title,
+            topic=item.topic,
+            category=item.category,
+            cut1=item.cut1,
+            cut2=item.cut2,
+            cut3=item.cut3,
+            caption=item.caption,
+            hashtags=item.hashtags,
+            ai_score=item.ai_score,
+            recommended=index == 0,
+            preview_text=item.preview_text,
+            post_date=item.post_date,
+        )
+        for index, item in enumerate(ranked_candidates[: settings.max_topics_per_run])
+    ]
+
+    logger.info(
+        "추천순 정렬 완료 | top=%s | score=%s",
+        ranked_candidates[0].title,
+        ranked_candidates[0].ai_score,
+    )
+
+    saved_count = 0
+    for candidate in ranked_candidates:
+        saved = writer.write_draft(candidate)
         if saved:
             saved_count += 1
 
@@ -63,7 +119,7 @@ def run() -> int:
 
     # TODO: Canva 템플릿 연결
     # TODO: Approved 상태 전환 후 Instagram 자동 업로드
-    # TODO: 주제 랭킹 점수화
+    # TODO: 주제 랭킹 점수화 고도화
     return 0 if saved_count > 0 else 1
 
 

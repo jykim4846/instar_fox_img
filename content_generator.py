@@ -26,7 +26,6 @@ CONTENT_SCHEMA: dict[str, Any] = {
                 "type": "string",
                 "enum": ["selfcare", "work", "dating", "spending", "trend", "lifestyle"],
             },
-            "template_type": {"type": "string", "enum": ["carousel_3"]},
             "cut1": {"type": "string"},
             "cut2": {"type": "string"},
             "cut3": {"type": "string"},
@@ -40,7 +39,6 @@ CONTENT_SCHEMA: dict[str, Any] = {
             "title",
             "topic",
             "category",
-            "template_type",
             "cut1",
             "cut2",
             "cut3",
@@ -57,7 +55,6 @@ class GeneratedContent:
     title: str
     topic: str
     category: Category
-    template_type: str
     cut1: str
     cut2: str
     cut3: str
@@ -133,7 +130,6 @@ angle: {topic.angle}
   "title": "문자열",
   "topic": "문자열",
   "category": "selfcare | work | dating | spending | trend | lifestyle",
-  "template_type": "carousel_3",
   "cut1": "문자열",
   "cut2": "문자열",
   "cut3": "문자열",
@@ -145,7 +141,6 @@ angle: {topic.angle}
 - JSON만 출력
 - topic 값은 "{topic.topic}" 유지
 - category 값은 "{topic.category}" 유지
-- template_type 은 반드시 "carousel_3"
 - cut1 은 훅
 - cut2 는 상황 설명
 - cut3 는 여우리의 팩트 결론
@@ -168,7 +163,6 @@ def validate_generated_content(
         "title",
         "topic",
         "category",
-        "template_type",
         "cut1",
         "cut2",
         "cut3",
@@ -194,9 +188,6 @@ def validate_generated_content(
             f"요청 category 와 응답 category 불일치: {expected_topic.category} != {category}"
         )
 
-    if payload["template_type"] != "carousel_3":
-        raise ValueError("template_type 은 carousel_3 이어야 합니다.")
-
     hashtags_raw = payload["hashtags"]
     if not isinstance(hashtags_raw, list) or not hashtags_raw:
         raise ValueError("hashtags 는 비어 있지 않은 배열이어야 합니다.")
@@ -209,7 +200,6 @@ def validate_generated_content(
         title=_clean_text(str(payload["title"])),
         topic=expected_topic.topic,
         category=category,
-        template_type="carousel_3",
         cut1=_clean_text(str(payload["cut1"])),
         cut2=_clean_text(str(payload["cut2"])),
         cut3=_clean_text(str(payload["cut3"])),

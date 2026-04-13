@@ -5,6 +5,7 @@ from datetime import datetime
 
 from notion_client import Client
 
+from canva_generator import CanvaGenerator
 from config import ConfigError, load_settings
 from content_generator import ContentGenerator
 from deduplicator import Deduplicator
@@ -51,6 +52,7 @@ def run() -> int:
 
     generator = ContentGenerator(settings=settings, logger=logger)
     writer = NotionWriter(notion=notion, settings=settings, logger=logger)
+    canva_generator = CanvaGenerator(settings=settings, logger=logger)
 
     ranked_candidates: list[RankedCandidate] = []
     post_date = datetime.now(settings.zoneinfo).date().isoformat()
@@ -113,7 +115,8 @@ def run() -> int:
 
     saved_count = 0
     for candidate in ranked_candidates:
-        saved = writer.write_draft(candidate)
+        canva_designs = canva_generator.generate_designs(candidate)
+        saved = writer.write_draft(candidate, canva_designs=canva_designs)
         if saved:
             saved_count += 1
 

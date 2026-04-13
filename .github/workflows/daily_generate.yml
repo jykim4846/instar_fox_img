@@ -24,6 +24,14 @@ jobs:
       MAX_TOPICS_PER_RUN: ${{ secrets.MAX_TOPICS_PER_RUN || '5' }}
       LOCALE: ${{ secrets.LOCALE || 'ko-KR' }}
       TIMEZONE: ${{ secrets.TIMEZONE || 'Asia/Seoul' }}
+      CANVA_ENABLED: ${{ secrets.CANVA_ENABLED || 'false' }}
+      CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
+      CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
+      CANVA_REFRESH_TOKEN: ${{ secrets.CANVA_REFRESH_TOKEN }}
+      CANVA_TEMPLATE_CONFIG_PATH: canva_templates.json
+      CANVA_POLL_INTERVAL_SECONDS: ${{ secrets.CANVA_POLL_INTERVAL_SECONDS || '2' }}
+      CANVA_POLL_TIMEOUT_SECONDS: ${{ secrets.CANVA_POLL_TIMEOUT_SECONDS || '90' }}
+      CANVA_REFRESH_TOKEN_OUTPUT_PATH: .canva_refresh_token
 
     steps:
       - name: Checkout repository
@@ -39,5 +47,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create Canva template config
+        if: env.CANVA_ENABLED == 'true'
+        env:
+          CANVA_TEMPLATE_CONFIG_JSON: ${{ secrets.CANVA_TEMPLATE_CONFIG_JSON }}
+        run: |
+          if [ -z "${CANVA_TEMPLATE_CONFIG_JSON}" ]; then
+            echo "CANVA_TEMPLATE_CONFIG_JSON secret is required when CANVA_ENABLED=true"
+            exit 1
+          fi
+          printf '%s' "${CANVA_TEMPLATE_CONFIG_JSON}" > "${CANVA_TEMPLATE_CONFIG_PATH}"
+
       - name: Run daily draft pipeline
         run: python main.py
+
+      - name: Persist rotated Canva refresh token
+        if: always() && env.CANVA_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_ACTIONS_ADMIN_TOKEN }}
+        run: |
+          if [ ! -f "${CANVA_REFRESH_TOKEN_OUTPUT_PATH}" ]; then
+            echo "No rotated Canva refresh token file found."
+            exit 0
+          fi
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "GITHUB_ACTIONS_ADMIN_TOKEN secret is missing. Canva refresh token was rotated but not persisted."
+            exit 0
+          fi
+          gh secret set CANVA_REFRESH_TOKEN --repo jykim4846/instar_fox_img --body "$(cat "${CANVA_REFRESH_TOKEN_OUTPUT_PATH}")"

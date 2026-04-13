@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 logs/
 .omx/
+.canva_refresh_token
+canva_templates.json

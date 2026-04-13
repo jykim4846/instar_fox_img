@@ -1,0 +1,29 @@
+{
+  "templates": [
+    {
+      "name": "fox-carousel-clean",
+      "brand_template_id": "YOUR_BRAND_TEMPLATE_ID_1",
+      "field_mapping": {
+        "post_title": "title",
+        "topic_text": "topic",
+        "cut_1": "cut1",
+        "cut_2": "cut2",
+        "cut_3": "cut3",
+        "caption_text": "caption",
+        "hashtags_text": "hashtags_text"
+      }
+    },
+    {
+      "name": "fox-carousel-bold",
+      "brand_template_id": "YOUR_BRAND_TEMPLATE_ID_2",
+      "field_mapping": {
+        "headline": "title",
+        "subheadline": "preview_text",
+        "body_1": "cut1",
+        "body_2": "cut2",
+        "body_3": "cut3",
+        "footer_text": "literal:@estj_fox"
+      }
+    }
+  ]
+}

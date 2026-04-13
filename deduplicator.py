@@ -50,16 +50,15 @@ class Deduplicator:
             datetime.now(self.settings.zoneinfo) - timedelta(days=self.settings.dedupe_window_days)
         ).date()
         results: list[RecentTopic] = []
+        data_source_id = self._resolve_data_source_id()
+        if data_source_id is None:
+            return []
         cursor: str | None = None
 
         while True:
             try:
-                response = self.notion.databases.query(
-                    database_id=self.settings.notion_database_id,
-                    filter={
-                        "timestamp": "created_time",
-                        "created_time": {"on_or_after": cutoff_date.isoformat()},
-                    },
+                response = self.notion.data_sources.query(
+                    data_source_id=data_source_id,
                     start_cursor=cursor,
                     page_size=100,
                 )
@@ -68,6 +67,13 @@ class Deduplicator:
                 return []
 
             for page in response.get("results", []):
+                created_time = page.get("created_time", "")
+                if created_time:
+                    created_date = datetime.fromisoformat(
+                        created_time.replace("Z", "+00:00")
+                    ).date()
+                    if created_date < cutoff_date:
+                        continue
                 properties = page.get("properties", {})
                 results.append(
                     RecentTopic(
@@ -82,6 +88,26 @@ class Deduplicator:
 
         self.logger.info("최근 Notion 항목 조회 완료 | %s개", len(results))
         return results
+
+    def _resolve_data_source_id(self) -> str | None:
+        try:
+            database = self.notion.databases.retrieve(
+                database_id=self.settings.notion_database_id
+            )
+        except Exception as error:  # noqa: BLE001
+            self.logger.warning("Notion 데이터베이스 조회 실패: %s", error)
+            return None
+
+        data_sources = database.get("data_sources", [])
+        if not data_sources:
+            self.logger.warning("Notion 데이터소스를 찾지 못했습니다.")
+            return None
+
+        data_source_id = data_sources[0].get("id")
+        if not data_source_id:
+            self.logger.warning("Notion 데이터소스 ID 가 비어 있습니다.")
+            return None
+        return data_source_id
 
     def _is_duplicate(
         self,

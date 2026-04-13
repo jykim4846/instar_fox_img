@@ -60,6 +60,25 @@ APP_SERVICE_KEYWORDS = {
     "배달",
 }
 
+MISLEADING_KEYWORDS = {
+    "소비에트",
+    "소비뇽",
+    "영어로",
+    "영단어",
+    "번역",
+    "홍혜주",
+    "연방",
+}
+
+CATEGORY_STRICT_TOKENS = {
+    "소비",
+    "연애",
+    "직장",
+    "회사",
+    "앱",
+    "서비스",
+}
+
 CATEGORY_RULES: list[tuple[Category, tuple[str, ...], str, int]] = [
     (
         "selfcare",
@@ -142,11 +161,13 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
 
     if not keyword or _contains_sensitive_keyword(lowered):
         return None
+    if _contains_misleading_keyword(lowered):
+        return None
     if _looks_too_specific(lowered):
         return None
 
     for category, keywords, angle, priority in CATEGORY_RULES:
-        if any(token in lowered for token in keywords):
+        if any(_matches_keyword(lowered, token) for token in keywords):
             return FilteredTopic(
                 keyword=keyword,
                 topic=_generalize_topic(keyword),
@@ -156,7 +177,7 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
                 priority=priority,
             )
 
-    if any(token in lowered for token in APP_SERVICE_KEYWORDS):
+    if any(_matches_keyword(lowered, token) for token in APP_SERVICE_KEYWORDS):
         return FilteredTopic(
             keyword=keyword,
             topic=_generalize_topic(keyword),
@@ -181,6 +202,10 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
 
 def _contains_sensitive_keyword(lowered_keyword: str) -> bool:
     return any(token in lowered_keyword for token in SENSITIVE_KEYWORDS)
+
+
+def _contains_misleading_keyword(lowered_keyword: str) -> bool:
+    return any(token in lowered_keyword for token in MISLEADING_KEYWORDS)
 
 
 def _looks_too_specific(lowered_keyword: str) -> bool:
@@ -223,6 +248,17 @@ def _is_generic_lifestyle_keyword(lowered_keyword: str) -> bool:
 def _generalize_topic(keyword: str) -> str:
     cleaned = re.sub(r"\s+", " ", keyword).strip()
     return cleaned[:40]
+
+
+def _matches_keyword(lowered_keyword: str, token: str) -> bool:
+    if token not in lowered_keyword:
+        return False
+
+    if token in CATEGORY_STRICT_TOKENS:
+        pattern = rf"(^|[^0-9a-z가-힣]){re.escape(token)}([^0-9a-z가-힣]|$)"
+        return re.search(pattern, lowered_keyword) is not None
+
+    return True
 
 
 def _normalize(value: str) -> str:

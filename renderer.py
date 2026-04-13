@@ -88,30 +88,48 @@ class CarouselRenderer:
             canvas.alpha_composite(background)
 
         draw = ImageDraw.Draw(canvas)
-        badge_font = self._load_font(28)
-        title_font = self._load_font(44)
-        body_font = self._fit_font(draw, body, 820, 86, 42)
+        badge_font = self._load_font(30)
+        title_font = self._load_font(42)
+        body_font = self._fit_font(draw, body, 560, 84, 40)
 
+        self._draw_panel_frame(draw, size)
+        self._draw_speed_lines(draw, size)
         self._draw_badge(draw, size, badge_font)
         self._draw_title(draw, title, size, title_font)
-        self._draw_body(draw, body, size, body_font)
+        self._draw_ground_shadow(draw, size)
         self._draw_fox(canvas, fox_path, size)
+        self._draw_body(draw, body, size, body_font)
         canvas.save(output_path, format="PNG")
 
+    def _draw_panel_frame(self, draw, size: int) -> None:
+        frame = (28, 28, size - 28, size - 28)
+        draw.rounded_rectangle(frame, radius=42, outline="#231815", width=10)
+        inner = (48, 48, size - 48, size - 48)
+        draw.rounded_rectangle(inner, radius=34, outline="#FFF8F0", width=6)
+
+    def _draw_speed_lines(self, draw, size: int) -> None:
+        line_color = "#EAD8D8"
+        top_y = 120
+        for offset in range(0, 7):
+            left_x = 80 + offset * 55
+            draw.line((left_x, top_y, left_x + 60, top_y - 32), fill=line_color, width=6)
+            right_x = size - 80 - offset * 55
+            draw.line((right_x, top_y, right_x - 60, top_y - 32), fill=line_color, width=6)
+
     def _draw_badge(self, draw, size: int, font) -> None:
-        text = "estj_fox"
+        text = "여우리 컷"
         bbox = draw.textbbox((0, 0), text, font=font)
-        width = bbox[2] - bbox[0] + 36
-        height = bbox[3] - bbox[1] + 20
-        x = (size - width) // 2
-        y = 54
-        draw.rounded_rectangle((x, y, x + width, y + height), radius=18, fill="#221814")
-        draw.text((size / 2, y + height / 2), text, font=font, fill="#FFF7EF", anchor="mm")
+        width = bbox[2] - bbox[0] + 52
+        height = bbox[3] - bbox[1] + 26
+        x = 74
+        y = 66
+        draw.rounded_rectangle((x, y, x + width, y + height), radius=20, fill="#221814")
+        draw.text((x + width / 2, y + height / 2), text, font=font, fill="#FFF7EF", anchor="mm")
 
     def _draw_title(self, draw, title: str, size: int, font) -> None:
-        wrapped = _wrap_text(title, 16)
+        wrapped = _wrap_text(title, 14)
         draw.multiline_text(
-            (size / 2, 170),
+            (size / 2, 154),
             wrapped,
             font=font,
             fill="#2B1D19",
@@ -121,12 +139,14 @@ class CarouselRenderer:
         )
 
     def _draw_body(self, draw, body: str, size: int, font) -> None:
-        body_box = (120, 260, 960, 510)
-        draw.rounded_rectangle(body_box, radius=44, fill="#FFF8F0")
-        wrap_width = max(6, int(820 / max(getattr(font, "size", 24), 24) * 1.7))
+        body_box = (108, 218, 972, 490)
+        draw.rounded_rectangle(body_box, radius=56, fill="#FFFDF8", outline="#231815", width=8)
+        tail = [(460, 490), (520, 490), (500, 560)]
+        draw.polygon(tail, fill="#FFFDF8", outline="#231815")
+        wrap_width = max(6, int(540 / max(getattr(font, "size", 24), 24) * 1.75))
         wrapped = _wrap_text(body, wrap_width)
         draw.multiline_text(
-            (size / 2, 385),
+            (size / 2, 346),
             wrapped,
             font=font,
             fill="#2B1D19",
@@ -135,11 +155,14 @@ class CarouselRenderer:
             spacing=12,
         )
 
+    def _draw_ground_shadow(self, draw, size: int) -> None:
+        draw.ellipse((280, 770, 800, 930), fill="#E6B0C3")
+
     def _draw_fox(self, canvas: Image.Image, fox_path: Path, size: int) -> None:
         fox = _remove_checkerboard_background(Image.open(fox_path).convert("RGBA"))
-        fox.thumbnail((600, 600))
+        fox.thumbnail((760, 760))
         x = (size - fox.width) // 2
-        y = size - fox.height - 100
+        y = size - fox.height - 38
         canvas.alpha_composite(fox, dest=(x, y))
 
     def _fit_font(self, draw, text: str, max_width: int, start_size: int, min_size: int):

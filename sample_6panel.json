@@ -2,11 +2,11 @@
   "title": "결론은 이미 났다",
   "category": "lifestyle",
   "cuts": [
-    {"type": "dialogue", "speaker": "other", "text": "이번엔 진짜 다를게"},
-    {"type": "dialogue", "speaker": "other", "text": "근데 답장은 또 늦음"},
-    {"type": "dialogue", "speaker": "me", "text": "바쁜가 보다"},
-    {"type": "dialogue", "speaker": "me", "text": "지금은 애매하지"},
-    {"type": "narration", "speaker": "none", "text": "이 장면만 반복됨"},
-    {"type": "fact", "speaker": "fox", "text": "반복이면 성향이다"}
+    {"type": "dialogue", "speaker": "other", "text": "미안 이제 봤어"},
+    {"type": "dialogue", "speaker": "other", "text": "요즘 너무 바빴어"},
+    {"type": "dialogue", "speaker": "fox", "text": "한 번이면 이해하지"},
+    {"type": "dialogue", "speaker": "fox", "text": "근데 늘 그 핑계네"},
+    {"type": "narration", "speaker": "none", "text": "말은 바뀌어도 속도는 안 바뀜"},
+    {"type": "fact", "speaker": "fox", "text": "반복된 답장은 본심이다"}
   ]
 }

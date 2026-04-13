@@ -1,18 +1,17 @@
-# estj_fox 콘텐츠 생성 + 렌더링 파이프라인
+# estj_fox 고민 수집 + 수동 답변 렌더 파이프라인
 
-한국 트렌드 키워드를 수집하고, 인스타 캐릭터 콘텐츠로 쓸 수 있는 주제만 골라 3컷 캐러셀 문구를 생성합니다. 이후 미리 준비된 여우 PNG 에셋과 배경 PNG를 조합해 1080x1080 PNG 3장을 렌더링하고, 결과를 Notion DB에 `Draft` 상태로 저장합니다.
+이 레포는 이제 `트렌드 기반 자동 카피 생성`이 아니라 `고민 수집 -> 사람이 답변 작성 -> 2장 카드 렌더` 흐름으로 운영합니다.
 
-이 프로그램은 다음까지만 담당합니다.
+현재 프로그램이 담당하는 범위:
 
-- 트렌드 수집
-- 문구 생성
-- PNG 렌더링
-- Notion 저장
+- 공개 신호 기반 고민 수집
+- 상위 고민을 Notion DB에 `Collected` 상태로 저장
+- 사람이 작성한 답변 JSON을 받아 2장 카드 렌더
 
-이 프로그램은 하지 않습니다.
+현재 프로그램이 하지 않는 일:
 
-- Canva 사용
-- 이미지 생성 AI 호출
+- OpenAI 기반 자동 카피 생성
+- 6컷 웹툰 자동 생성
 - Instagram 업로드
 - 게시 자동화
 
@@ -22,35 +21,21 @@
 project/
 ├── assets/
 │   ├── fox/
-│   │   ├── annoyed.png
-│   │   ├── arms_crossed.png
-│   │   ├── base_reference.png
-│   │   ├── closeup_face.png
-│   │   ├── judging.png
-│   │   ├── lying_down.png
-│   │   ├── neutral_front.png
-│   │   ├── phone_looking.png
-│   │   ├── pointing.png
-│   │   └── sitting_blank.png
 │   └── backgrounds/
 ├── fonts/
 ├── output/
-├── asset_mapper.py
-├── config.py
-├── content_generator.py
-├── deduplicator.py
-├── logger.py
+├── daily_worry.py
+├── daily_worry_solution.py
 ├── main.py
-├── notion_db_template.csv
+├── manual_worry_solution.py
 ├── notion_writer.py
-├── renderer.py
-├── requirements.txt
-├── scorer.py
-├── topic_filter.py
-└── trend_collector.py
+├── render_manual_worry_solution.py
+├── worry_solution_renderer.py
+├── notion_worry_db_schema.md
+└── requirements.txt
 ```
 
-## 설치 방법
+## 설치
 
 ```bash
 python3 -m venv .venv
@@ -60,15 +45,12 @@ pip install -r requirements.txt
 
 ## .env 예시
 
+고민 수집 + Notion 저장용:
+
 ```env
-OPENAI_API_KEY=sk-...
 NOTION_API_KEY=secret_...
 NOTION_DATABASE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-OPENAI_MODEL=gpt-5.4
-MAX_TOPICS_PER_RUN=5
-LOCALE=ko-KR
 TIMEZONE=Asia/Seoul
-OUTPUT_BASE_URL=
 OUTPUT_DIR=./output
 ASSETS_DIR=assets
 FOX_ASSETS_DIR=assets/fox
@@ -78,132 +60,102 @@ FONT_PATH=fonts/Pretendard-Bold.otf
 IMAGE_SIZE=1080
 ```
 
-## 실행 방법
+선택:
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.4
+```
+
+`OPENAI_API_KEY`는 현재 기본 운영 경로에서는 필요 없습니다.
+
+## 실행
+
+고민 수집 후 Notion에 저장:
 
 ```bash
 python main.py
 ```
 
-## GitHub Actions
+수동 답변 JSON을 2장 카드로 렌더:
 
-- `.github/workflows/daily_generate.yml`
-- 매일 `UTC 00:00`, 한국 시간 `09:00`
-- 수동 실행 지원
-- 생성 이미지들은 `output/` 아래에 저장되고 workflow artifact 로 업로드됩니다.
-
-필수 Secrets:
-
-- `OPENAI_API_KEY`
-- `NOTION_API_KEY`
-- `NOTION_DATABASE_ID`
-
-선택 Secrets:
-
-- `OPENAI_MODEL`
-- `MAX_TOPICS_PER_RUN`
-- `LOCALE`
-- `TIMEZONE`
-- `OUTPUT_BASE_URL`
-
-## Notion DB 속성 예시
-
-| 속성명 | 타입 | 예시 |
-| --- | --- | --- |
-| `Title` | Title | `필요한 거냐` |
-| `Topic` | Rich text | `무지출 챌린지` |
-| `Category` | Select | `spending` |
-| `TemplateType` | Select | `carousel_3` |
-| `Cut1` | Rich text | `시작은 쉬움` |
-| `Cut2` | Rich text | `결제는 더 쉬움` |
-| `Cut3` | Rich text | `유지가 어렵지` |
-| `Caption` | Rich text | `유행은 빨리 오고 카드값은 늦게 온다.` |
-| `Hashtags` | Rich text | `#절약 #소비 #챌린지` |
-| `Status` | Status | `Draft`, `Approved` |
-| `AIScore` | Number | `87` |
-| `Recommended` | Checkbox | `true` |
-| `PreviewImage1` | Rich text | `./output/example/slide1.png` |
-| `PreviewImage2` | Rich text | `./output/example/slide2.png` |
-| `PreviewImage3` | Rich text | `./output/example/slide3.png` |
-| `Source` | Rich text | `Google Trends RSS` |
-| `CreatedAt` | Date | `2026-04-13T09:00:00+09:00` |
-| `PostDate` | Date | `2026-04-13` |
-
-중요:
-
-- 새 콘텐츠는 항상 `Draft`
-- 사람이 `Approved` 로 바꾼 것만 기존 게시 프로그램이 처리
-- `PreviewImage1~3` 는 URL 또는 로컬 경로 문자열 저장
-
-## 동작 흐름
-
-1. `trend_collector.py`
-   - pytrends
-   - Google Trends RSS
-   - Google Suggest fallback
-2. `topic_filter.py`
-   - 민감 주제 제거
-   - 자기관리, 소비, 직장, 연애, 습관, 밈, 앱/서비스 문화 우선
-3. `deduplicator.py`
-   - 최근 14일간 생성된 `Title`, `Topic` 중복/유사 중복 제거
-4. `content_generator.py`
-   - OpenAI Responses API로 JSON 생성
-   - `visuals` 필드까지 포함
-5. `asset_mapper.py`
-   - OpenAI visuals 우선
-   - 없거나 파일이 없으면 category fallback
-6. `renderer.py`
-   - Pillow로 1080x1080 이미지 3장 렌더
-7. `scorer.py`
-   - AIScore 계산
-   - 추천 후보 정렬
-8. `notion_writer.py`
-   - Notion DB에 `Draft` 상태 저장
-   - 렌더된 3장을 Notion 페이지 본문에도 첨부
-
-## 렌더링 규칙
-
-- 기본 배경색: `#F7F3EA`
-- 텍스트: 상단 중앙
-- 캐릭터: 중앙 하단
-- 여우 PNG 비율 유지
-- 폰트: `fonts/Pretendard-Bold.otf` 우선
-- 폰트가 없으면 기본 폰트 fallback
-- 배경 PNG가 없으면 단색 배경으로 fallback
-
-## sample JSON 예시
-
-```json
-{
-  "title": "필요한 거냐",
-  "topic": "무지출 챌린지",
-  "category": "spending",
-  "template_type": "carousel_3",
-  "cut1": "시작은 쉬움",
-  "cut2": "결제는 더 쉬움",
-  "cut3": "유지가 어렵지",
-  "caption": "유행은 빨리 오고 카드값은 늦게 온다.",
-  "hashtags": ["#절약", "#소비", "#챌린지"],
-  "visuals": {
-    "background": "shopping.png",
-    "cut1": "phone_looking.png",
-    "cut2": "judging.png",
-    "cut3": "pointing.png"
-  }
-}
+```bash
+python render_manual_worry_solution.py sample_manual_worry_solution.json
 ```
 
-## 예외 처리
+호환용 별칭:
 
-- 트렌드 수집 실패 시 fallback 재시도
-- OpenAI JSON 파싱 실패 시 재시도
-- visuals 파일 누락 시 category fallback
-- 배경 누락 시 단색 배경 fallback
-- 폰트 누락 시 기본 폰트 fallback
-- Notion 저장 실패 시 다음 후보 계속 처리
+```bash
+python daily_worry_solution.py sample_manual_worry_solution.json
+```
 
-## TODO
+## 수동 입력 포맷
 
-- Approved 상태와 연동한 게시 파이프라인 연결
-- 성과 데이터 기반 주제 점수 개선
-- 배경/에셋 다양화
-- 이미지 업로드 후 public URL 저장
+예시는 [sample_manual_worry_solution.json](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/sample_manual_worry_solution.json)에 있습니다.
+
+필수 필드:
+
+- `title`
+- `category`
+- `worry`
+- `source`
+- `worry_summary`
+- `worry_story`
+- `solution_title`
+- `solution_body`
+- `final_line`
+- `fox_pose`
+- `background`
+
+## 출력
+
+렌더 결과:
+
+- `output/<title>/worry_slide.png`
+- `output/<title>/solution_slide.png`
+
+수집 결과:
+
+- `output/daily_worry/today_worry.json`
+
+## Notion DB
+
+새 DB 구조는 [notion_worry_db_schema.md](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/notion_worry_db_schema.md)를 기준으로 맞추면 됩니다.
+
+최소 권장 속성:
+
+- `Title`
+- `Worry`
+- `Category`
+- `Source`
+- `WorrySummary`
+- `WriterAnswer`
+- `Status`
+- `WorkflowStage`
+- `CreatedAt`
+- `PostDate`
+
+권장 상태값:
+
+- `Status`: `Draft`, `hold`, `Approved`
+- `WorkflowStage`: `Collected`, `Answered`, `Rendered`, `Approved`, `Posted`
+
+## 현재 흐름
+
+1. `daily_worry.py`
+   - Google Trends RSS
+   - Google Suggest
+   - 고민형 패턴 필터
+   - 민감 키워드 제거
+   - 유사 고민 정규화
+2. `main.py`
+   - 상위 고민을 Notion에 `Collected` 상태로 저장
+3. 사람이 Notion 또는 JSON에서 답변 작성
+4. `render_manual_worry_solution.py`
+   - 고민 카드 1장
+   - 솔루션 카드 1장 렌더
+
+## 비고
+
+- `content_generator.py`, `renderer.py` 같은 이전 자동 생성 경로 파일은 아직 레포에 남아 있을 수 있지만, 현재 운영 메인 경로는 아닙니다.
+- OpenAI 기반 자동 솔루션 생성은 보조 실험용으로만 남기거나 이후 제거할 수 있습니다.

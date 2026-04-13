@@ -3,7 +3,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from zoneinfo import ZoneInfo
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover
+    from pytz import timezone as pytz_timezone
+
+    def ZoneInfo(name: str):  # type: ignore[misc]
+        return pytz_timezone(name)
 
 from dotenv import load_dotenv
 
@@ -14,9 +21,9 @@ class ConfigError(ValueError):
 
 @dataclass(frozen=True)
 class Settings:
-    openai_api_key: str
     notion_api_key: str
     notion_database_id: str
+    openai_api_key: str = ""
     openai_model: str = "gpt-5.4"
     max_topics_per_run: int = 5
     locale: str = "ko-KR"
@@ -66,7 +73,7 @@ def load_settings(env_file: str | None = None) -> Settings:
     load_dotenv(dotenv_path=env_file)
 
     return Settings(
-        openai_api_key=_get_env("OPENAI_API_KEY"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         notion_api_key=_get_env("NOTION_API_KEY"),
         notion_database_id=_get_env("NOTION_DATABASE_ID"),
         openai_model=_get_env("OPENAI_MODEL", "gpt-5.4"),

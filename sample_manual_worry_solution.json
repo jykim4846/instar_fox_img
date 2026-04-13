@@ -1,0 +1,22 @@
+{
+  "title": "답장은 우선순위다",
+  "category": "dating",
+  "worry": "답장 느린 사람 계속 만나도 되나",
+  "source": "daily_worry",
+  "worry_summary": "처음엔 바쁜가 보다 했는데, 계속 같은 패턴이면 해석이 달라진다.",
+  "worry_story": [
+    "답장이 느려도 처음엔 이해했다.",
+    "근데 늘 내가 먼저 보내야 이어진다.",
+    "미안하다는 말은 오는데 속도는 안 바뀐다.",
+    "이걸 계속 이해해줘야 하나 싶다."
+  ],
+  "solution_title": "여우리 답변",
+  "solution_body": [
+    "한 번 느린 건 일정 문제다.",
+    "계속 느린 건 우선순위 문제다.",
+    "말 말고 반복되는 속도를 봐라."
+  ],
+  "final_line": "반복된 느림은 답이다.",
+  "fox_pose": "judging.png",
+  "background": "chat.png"
+}

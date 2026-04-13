@@ -1,224 +1,153 @@
 # Handoff
 
-이 문서는 다른 PC에서 이 레포를 이어받아 작업할 Codex/개발자를 위한 현재 상태 요약입니다.
+이 문서는 현재 레포의 실제 운영 방향을 빠르게 복구하기 위한 요약입니다.
 
 ## 현재 목표
 
-`estj_fox` 인스타 캐릭터 계정용 파이프라인을 운영 중입니다.
+`estj_fox` 계정은 이제 자동 카피 생성보다 `고민 수집 + 사람이 답변 작성 + 2장 카드 렌더` 흐름으로 운영합니다.
 
 현재 프로그램이 담당하는 범위:
 
-- 한국 트렌드 키워드 수집
-- 캐릭터 콘텐츠용 주제 필터링
-- OpenAI로 3컷 캐러셀 문구 생성
-- 로컬 PNG 에셋 기반 1080x1080 이미지 3장 렌더링
-- Notion DB에 `Draft` 상태로 저장
-- Notion 페이지 본문에 렌더된 이미지 3장 첨부
+- 공개 신호에서 고민 후보 수집
+- 상위 고민을 Notion DB에 `Collected` 상태로 저장
+- 사람이 작성한 답변 JSON을 2장 이미지로 렌더
 
 현재 프로그램이 하지 않는 일:
 
+- 자동 6컷 웹툰 생성
+- OpenAI 기반 메인 카피 생성
 - Instagram 업로드
-- Canva 사용
-- 이미지 생성 AI
 - 게시 자동화
 
-## 최근 상태
+## 현재 기준 메인 파일
 
-최신 원격 기준 브랜치:
+- [main.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/main.py)
+  고민 수집 후 Notion에 저장
 
-- `main`
+- [daily_worry.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/daily_worry.py)
+  Google Trends / Google Suggest 기반 고민 수집기
 
-최근 중요 커밋:
+- [notion_writer.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/notion_writer.py)
+  새 Worry DB 구조 기준 `Collected` 저장기
 
-- `1f3a46b` `Sharpen trend selection and copy generation quality`
-- `679d5ce` `Tolerate missing optional Notion properties during draft writes`
-- `5e38c9f` `Finish image handling inside the local estj_fox pipeline`
-- `dcd422f` `Strip baked checkerboard backgrounds from fox assets at render time`
+- [manual_worry_solution.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/manual_worry_solution.py)
+  사람이 쓰는 수동 답변 JSON 로더
 
-## 현재 동작 확인된 것
+- [render_manual_worry_solution.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/render_manual_worry_solution.py)
+  수동 답변 JSON을 2장 카드로 렌더
 
-- 로컬 렌더링 성공
-- 여우 PNG 체크보드 배경 자동 제거 성공
-- 배경 PNG 적용 성공
-- Notion Draft 행 생성 성공
-- Notion 페이지 본문에 `Rendered Slides` 아래 이미지 3장 첨부 성공
-- GitHub Actions에서 `output/` artifact 업로드 성공
+- [worry_solution_renderer.py](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/worry_solution_renderer.py)
+  고민 카드 / 솔루션 카드 렌더러
 
-## 현재 남아 있는 운영 이슈
+- [notion_worry_db_schema.md](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/notion_worry_db_schema.md)
+  새 Notion DB 스키마 문서
 
-### 1. Notion DB 컬럼 불완전
+## 현재 확인된 것
 
-현재 실제 DB 스키마에는 아래 속성이 없습니다.
+- 수동 답변 JSON 렌더 성공
+- `worry_slide.png`, `solution_slide.png` 2장 출력 성공
+- 여우 PNG 체커보드 제거 성공
+- `main.py`는 고민 수집 후 Notion `Collected` 저장 흐름으로 교체됨
 
-- `TemplateType`
-- `PreviewImage1`
-- `PreviewImage2`
-- `PreviewImage3`
+샘플 출력:
+
+- [worry_slide.png](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/output/답장은_우선순위다/worry_slide.png)
+- [solution_slide.png](/Users/jongyeonkim/Desktop/instar_fox_img/instar_fox_img/output/답장은_우선순위다/solution_slide.png)
+
+## 현재 남아 있는 핵심 이슈
+
+### 1. Notion DB 실물 스키마 변경 필요
+
+코드는 새 Worry DB 구조를 기준으로 바뀌었지만, 실제 워크스페이스 DB는 아직 확인/변경하지 못했습니다.
+
+이유:
+
+- 실제 `NOTION_DATABASE_ID`가 로컬 `.env`에 없어서 현재 세션에서 대상 DB를 특정할 수 없었음
+
+필요한 최소 속성:
+
+- `Title`
+- `Worry`
+- `Category`
 - `Source`
+- `WorrySummary`
+- `WriterAnswer`
+- `Status`
+- `WorkflowStage`
 - `CreatedAt`
+- `PostDate`
 
-그래서 현재 코드는:
+권장 추가 속성:
 
-- 있으면 저장
-- 없으면 건너뛰고 Draft 생성 계속
+- `SolutionTitle`
+- `SolutionBody`
+- `FinalLine`
+- `RenderedWorryImage`
+- `RenderedSolutionImage`
 
-즉, 페이지 본문 이미지는 붙지만 테이블 컬럼에는 일부 값이 안 보일 수 있습니다.
+현재 실제 DB 기준:
 
-권장:
+- `Status`
+  - `Draft`
+  - `hold`
+  - `Approved`
+- `WorkflowStage`
+  - `Collected`
+  - `Answered`
+  - `Rendered`
+  - `Approved`
+  - `Posted`
 
-Notion DB에 위 컬럼을 추가해서 스키마를 코드와 맞추는 것이 좋습니다.
+### 2. 구형 자동 생성 파일 정리 여부
 
-### 2. 콘텐츠 품질
+아래 파일은 이전 자동 생성 경로의 흔적이 남아 있습니다.
 
-이전 결과는 너무 generic 하거나 트렌드 연결이 약했습니다.
-이를 개선하기 위해 아래를 반영했습니다.
+- `content_generator.py`
+- `renderer.py`
+- `asset_mapper.py`
+- `scorer.py`
+- `trend_collector.py`
 
-- 의료/사전식 키워드 필터 강화
-- Suggest 시드를 생활형/트렌드형으로 교체
-- 프롬프트에서 `왜 지금 뜨는지 보이는 생활 장면` 강제
-- 위로형/교훈형/사전형 문구 validation 강화
+현재 운영 메인 경로는 아니므로:
 
-하지만 품질은 여전히 추가 튜닝 대상입니다.
+- 완전히 제거하거나
+- `legacy/`로 옮기거나
+- 실험용으로만 남긴다는 문서화가 필요합니다.
 
-우선 확인 포인트:
+### 3. Notion 기반 수동 작성 UX 미완성
 
-- `선정 주제 샘플` 로그
-- 생성된 `Title`, `Cut2`, `Cut3`
+지금은 두 방식이 섞여 있습니다.
 
-좋은 결과 기준:
+- `main.py`로 고민 수집 후 Notion 저장
+- `sample_manual_worry_solution.json` 같은 수동 JSON 렌더
 
-- 키워드가 요즘 왜 보이는지 즉시 감이 와야 함
-- 설명문이 아니라 찌르는 한마디여야 함
-- 자기계발 명언처럼 보이면 실패
+다음 단계는 둘 중 하나로 통일하는 것이 좋습니다.
 
-### 3. Notion 미리보기 컬럼 vs 본문 이미지
-
-현재 실제 검수 UX는 페이지 본문 이미지 첨부가 핵심입니다.
-
-DB 테이블에서 곧바로 보고 싶다면:
-
-- `PreviewImage1`
-- `PreviewImage2`
-- `PreviewImage3`
-
-를 추가한 뒤, 코드가 그 컬럼을 다시 채우도록 두면 됩니다.
-
-## 주요 파일 역할
-
-- [main.py](/Users/jongyeon.kim/Desktop/instar_fox_img/main.py:1)
-  전체 파이프라인 진입점
-
-- [trend_collector.py](/Users/jongyeon.kim/Desktop/instar_fox_img/trend_collector.py:1)
-  pytrends / Google Trends RSS / Google Suggest fallback
-
-- [topic_filter.py](/Users/jongyeon.kim/Desktop/instar_fox_img/topic_filter.py:1)
-  민감 이슈 제거, 생활형/트렌드형 주제 선별
-
-- [content_generator.py](/Users/jongyeon.kim/Desktop/instar_fox_img/content_generator.py:1)
-  OpenAI Responses API, structured JSON 생성
-
-- [asset_mapper.py](/Users/jongyeon.kim/Desktop/instar_fox_img/asset_mapper.py:1)
-  카테고리별 에셋 fallback 규칙
-
-- [renderer.py](/Users/jongyeon.kim/Desktop/instar_fox_img/renderer.py:1)
-  Pillow 렌더링, 체크보드 배경 제거, 폰트/레이아웃 처리
-
-- [notion_writer.py](/Users/jongyeon.kim/Desktop/instar_fox_img/notion_writer.py:1)
-  Notion 페이지 생성, 부분 속성 fallback, 본문 이미지 첨부
-
-- [scorer.py](/Users/jongyeon.kim/Desktop/instar_fox_img/scorer.py:1)
-  AIScore 계산
-
-## 실제 확인된 Notion 상태
-
-최근 생성된 페이지 예시:
-
-- `습관성 유산처럼 끊기는 관리`
-
-이 페이지는:
-
-- DB 행 생성됨
-- 본문에 `Rendered Slides` 아래 이미지 3장 붙어 있음
-
-즉, 이미지 첨부 로직은 현재 동작하고 있습니다.
-
-## 에셋 상태
-
-여우 에셋 폴더:
-
-- `assets/fox/`
-
-배경 에셋 폴더:
-
-- `assets/backgrounds/`
-
-폰트:
-
-- `fonts/Pretendard-Bold.otf`
-
-주의:
-
-- 여우 PNG 원본 일부는 체크보드 배경이 baked-in 되어 있었음
-- 렌더 단계에서 edge-connected light pixels 를 투명화하는 전처리 추가됨
-- 만약 이후 다른 색 배경 matte PNG가 들어오면 `renderer.py` 의 `_looks_like_checker_bg` 조정 필요
+- Notion에서 직접 답변 작성 후 렌더
+- 로컬 JSON 작성 후 렌더
 
 ## 실행 방법
 
+고민 수집 후 Notion 저장:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
 python main.py
 ```
 
-GitHub Actions:
+수동 답변 렌더:
 
-- `.github/workflows/daily_generate.yml`
-- 매일 `UTC 00:00` / 한국 시간 `09:00`
+```bash
+python render_manual_worry_solution.py sample_manual_worry_solution.json
+```
 
-## 집 PC에서 바로 이어서 할 일 추천 순서
+## 추천 다음 작업
 
-1. 레포 pull
-2. `.env` 확인
-3. `python main.py` 로 로컬 1회 실행
-4. Notion 새 Draft 확인
-5. 생성된 문구 품질 평가
-6. 필요하면 `topic_filter.py`, `content_generator.py`, `scorer.py` 추가 튜닝
+1. 실제 Notion DB를 새 스키마로 변경
+2. `WriterAnswer` 기반 입력 규칙 확정
+3. Notion 페이지에서 답변을 읽어와 자동 렌더하는 스크립트 추가
+4. 구형 자동 생성 파일 정리
 
-## 가장 유력한 다음 작업
+## 참고
 
-### 우선순위 1
-
-Notion DB 스키마를 코드 기대치에 맞추기:
-
-- `TemplateType`
-- `PreviewImage1`
-- `PreviewImage2`
-- `PreviewImage3`
-- `Source`
-- `CreatedAt`
-
-### 우선순위 2
-
-문구 품질 추가 개선:
-
-- `습관`, `루틴`, `앱`, `구독` 같은 broad keyword가 너무 generic 하면 더 좁혀야 함
-- 결과가 평범하면 프롬프트에 더 강한 금지 규칙 추가
-- `cut2` 에 트렌드 상황이 드러나지 않으면 실패 처리하는 validation 추가 가능
-
-### 우선순위 3
-
-검수 UX 개선:
-
-- 페이지 커버에 첫 슬라이드 반영
-- 본문 이미지 위에 요약 블록 추가
-- `PreviewText` 를 다시 채우는 컬럼 복원
-
-## TODO
-
-- Approved 상태와 연동한 게시 파이프라인 연결
-- 성과 데이터 기반 주제 점수 개선
-- 배경/에셋 다양화
-- 이미지 업로드 후 public URL 저장
-
+- 현재 `config.py`는 `OPENAI_API_KEY` 없이도 기본 운영 경로가 동작하도록 수정됨
+- OpenAI 기반 생성 실험 경로는 별도 유지 가능하지만, 메인 흐름에서는 필수가 아님

@@ -48,6 +48,10 @@ CONTENT_SCHEMA: dict[str, Any] = {
                 "enum": ["selfcare", "work", "dating", "spending", "trend", "lifestyle"],
             },
             "template_type": {"type": "string", "enum": ["webtoon_6"]},
+            "situation": {"type": "string"},
+            "pattern": {"type": "string"},
+            "estj_rule": {"type": "string"},
+            "final_fact": {"type": "string"},
             "cuts": {
                 "type": "array",
                 "minItems": 6,
@@ -88,6 +92,10 @@ CONTENT_SCHEMA: dict[str, Any] = {
             "topic",
             "category",
             "template_type",
+            "situation",
+            "pattern",
+            "estj_rule",
+            "final_fact",
             "cuts",
             "caption",
             "hashtags",
@@ -104,6 +112,10 @@ class GeneratedContent:
     topic: str
     category: Category
     template_type: str
+    situation: str
+    pattern: str
+    estj_rule: str
+    final_fact: str
     cuts: list[CutLine]
     caption: str
     hashtags: list[str]
@@ -178,6 +190,14 @@ def build_system_prompt() -> str:
 너는 인스타 캐릭터 계정 estj_fox의 전속 콘텐츠 작가다.
 캐릭터는 귀여운 사막여우지만 말투는 ESTJ처럼 현실적이고 단정적이다.
 짧고 저장하고 싶은 문장을 만든다.
+말투보다 판단 기준이 먼저다.
+ESTJ 여우리의 판단 기준:
+- 말보다 행동을 믿는다
+- 반복은 실수보다 성향으로 본다
+- 애매함을 오래 끌지 않는다
+- 관심, 성의, 우선순위는 행동 속도에서 읽는다
+- 핑계보다 패턴을 본다
+- 감정보다 구조를 본다
 감정 과장, 위로형 문장, 블로그체, 설명체를 금지한다.
 정치, 범죄, 혐오, 재난, 성적 주제를 다루지 않는다.
 출력은 반드시 JSON만 한다.
@@ -203,8 +223,11 @@ angle: {topic.angle}
 - 각 컷은 짧게
 - 마지막 컷은 가장 강하게
 - 대화형 장면이 우선이다
-- 가능한 컷 1~4는 대화나 속말로 진행한다
-- 컷 6은 가능하면 speaker 가 fox 여야 한다
+- 여우 캐릭터는 하나다
+- speaker "me" 는 곧 여우리다
+- speaker "other" 는 상대방 말풍선만 나온다
+- 가능한 컷 1~4는 other 와 fox 의 대화나 여우리 속말로 진행한다
+- 컷 6은 speaker 가 반드시 fox 여야 한다
 
 추가 규칙:
 - JSON만 출력
@@ -213,6 +236,11 @@ angle: {topic.angle}
 - category 값은 "{topic.category}" 유지
 - template_type 은 반드시 "webtoon_6"
 - title 은 저장하고 싶은 한마디처럼 짧고 선명해야 함
+- 먼저 situation, pattern, estj_rule, final_fact 를 만든 뒤 컷을 쓸 것
+- situation 은 처음 보는 사람도 장면이 보일 만큼 구체적이어야 함
+- pattern 은 반복되는 행동을 짚어야 함
+- estj_rule 은 여우의 판단 기준 한 줄이어야 함
+- final_fact 는 estj_rule 에서 바로 나온 단정적인 결론이어야 함
 - 설명하지 말고 장면으로 써라
 - 위로하지 말고 정리해라
 - 명언체, 교훈체, 블로그체 금지
@@ -229,12 +257,16 @@ angle: {topic.angle}
   "topic": "문자열",
   "category": "dating | work | selfcare | spending | trend | lifestyle",
   "template_type": "webtoon_6",
+  "situation": "문자열",
+  "pattern": "문자열",
+  "estj_rule": "문자열",
+  "final_fact": "문자열",
   "cuts": [
     {{"type": "dialogue", "speaker": "other", "text": "문자열"}},
-    {{"type": "dialogue", "speaker": "me", "text": "문자열"}},
-    {{"type": "dialogue", "speaker": "me | other | fox", "text": "문자열"}},
-    {{"type": "dialogue", "speaker": "me | other | fox", "text": "문자열"}},
-    {{"type": "narration | dialogue", "speaker": "none | me | other | fox", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "fox", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "fox | other | me", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "fox | other | me", "text": "문자열"}},
+    {{"type": "narration | dialogue", "speaker": "none | fox | other | me", "text": "문자열"}},
     {{"type": "fact | dialogue", "speaker": "fox", "text": "문자열"}}
   ],
   "caption": "문자열",
@@ -257,10 +289,14 @@ def validate_generated_content(
     expected_topic: FilteredTopic,
 ) -> GeneratedContent:
     required_keys = {
-    "title",
-    "topic",
-    "category",
-    "template_type",
+        "title",
+        "topic",
+        "category",
+        "template_type",
+        "situation",
+        "pattern",
+        "estj_rule",
+        "final_fact",
         "cuts",
         "caption",
         "hashtags",
@@ -311,6 +347,8 @@ def validate_generated_content(
             raise ValueError(f"허용되지 않은 speaker: {speaker}")
         if not text:
             raise ValueError("컷 텍스트가 비어 있습니다.")
+        if speaker == "me":
+            speaker = "fox"
         cuts.append(CutLine(type=cut_type, speaker=speaker, text=text))
 
     content = GeneratedContent(
@@ -318,6 +356,10 @@ def validate_generated_content(
         topic=expected_topic.topic,
         category=category,
         template_type=template_type,
+        situation=_clean_text(str(payload["situation"])),
+        pattern=_clean_text(str(payload["pattern"])),
+        estj_rule=_clean_text(str(payload["estj_rule"])),
+        final_fact=_clean_text(str(payload["final_fact"])),
         cuts=cuts,
         caption=_clean_text(str(payload["caption"])),
         hashtags=hashtags[:3],
@@ -332,7 +374,7 @@ def validate_generated_content(
         ),
     )
 
-    for field_name in ("title", "caption"):
+    for field_name in ("title", "situation", "pattern", "estj_rule", "final_fact", "caption"):
         if not getattr(content, field_name):
             raise ValueError(f"{field_name} 이 비어 있습니다.")
     _validate_copy_quality(content)
@@ -370,6 +412,10 @@ def _validate_copy_quality(content: GeneratedContent) -> None:
     text_blob = " ".join(
         [
             content.title,
+            content.situation,
+            content.pattern,
+            content.estj_rule,
+            content.final_fact,
             *[cut.text for cut in content.cuts],
             content.caption,
             content.topic,
@@ -381,11 +427,23 @@ def _validate_copy_quality(content: GeneratedContent) -> None:
     if len(content.title.replace(" ", "")) > 18:
         raise ValueError("title 이 너무 깁니다.")
 
+    if len(content.situation.replace(" ", "")) < 8:
+        raise ValueError("situation 이 너무 추상적입니다.")
+
+    if len(content.pattern.replace(" ", "")) < 6:
+        raise ValueError("pattern 이 너무 약합니다.")
+
+    if len(content.estj_rule.replace(" ", "")) < 6:
+        raise ValueError("estj_rule 이 너무 약합니다.")
+
     if content.cuts[5].speaker != "fox":
         raise ValueError("마지막 컷은 fox 화자여야 합니다.")
 
     if content.cuts[5].type not in {"fact", "dialogue"}:
         raise ValueError("마지막 컷은 fact 또는 dialogue 타입이어야 합니다.")
+
+    if content.final_fact != content.cut6:
+        raise ValueError("final_fact 와 마지막 컷 문장이 일치해야 합니다.")
 
     if len(content.cut6.replace(" ", "")) < 5:
         raise ValueError("cut6 가 너무 짧아 결론이 약합니다.")

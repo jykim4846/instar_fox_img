@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List
@@ -134,7 +135,7 @@ def load_post(json_path: Path) -> WebtoonPost:
         normalized_cuts.append(
             {
                 "type": str(item.get("type", "dialogue")).strip() or "dialogue",
-                "speaker": str(item.get("speaker", "none")).strip() or "none",
+                "speaker": _normalize_speaker(str(item.get("speaker", "none")).strip() or "none"),
                 "text": str(item.get("text", "")).strip(),
             }
         )
@@ -228,21 +229,81 @@ def paste_centered(canvas: Image.Image, asset: Image.Image, area: tuple[int, int
     area_w = right - left
     area_h = bottom - top
 
-    rendered = asset.copy()
-    rendered.thumbnail((area_w, area_h), Image.Resampling.LANCZOS)
+    rendered = _prepare_fox_asset(asset)
+    rendered.thumbnail(
+        (int(area_w * 0.8), int(area_h * 0.82)),
+        Image.Resampling.LANCZOS,
+    )
     x = left + (area_w - rendered.width) // 2
     y = top + (area_h - rendered.height) // 2
     canvas.alpha_composite(rendered, (x, y))
 
 
+def _prepare_fox_asset(asset: Image.Image) -> Image.Image:
+    cleaned = _remove_checkerboard_background(asset)
+    bbox = cleaned.getbbox()
+    if bbox is None:
+        return cleaned
+    return cleaned.crop(bbox)
+
+
+def _remove_checkerboard_background(image: Image.Image) -> Image.Image:
+    cleaned = image.copy()
+    pixels = cleaned.load()
+    width, height = cleaned.size
+    queue: deque[tuple[int, int]] = deque()
+    visited: set[tuple[int, int]] = set()
+
+    for x in range(width):
+        queue.append((x, 0))
+        queue.append((x, height - 1))
+    for y in range(height):
+        queue.append((0, y))
+        queue.append((width - 1, y))
+
+    while queue:
+        x, y = queue.popleft()
+        if (x, y) in visited:
+            continue
+        visited.add((x, y))
+
+        r, g, b, a = pixels[x, y]
+        if a == 0 or not _looks_like_checker_bg(r, g, b):
+            continue
+
+        pixels[x, y] = (r, g, b, 0)
+
+        if x > 0:
+            queue.append((x - 1, y))
+        if x < width - 1:
+            queue.append((x + 1, y))
+        if y > 0:
+            queue.append((x, y - 1))
+        if y < height - 1:
+            queue.append((x, y + 1))
+
+    return cleaned
+
+
+def _looks_like_checker_bg(r: int, g: int, b: int) -> bool:
+    max_channel = max(r, g, b)
+    min_channel = min(r, g, b)
+    return max_channel >= 228 and (max_channel - min_channel) <= 18
+
+
 def _speaker_label(speaker: str) -> str:
     labels = {
         "fox": "여우리",
-        "me": "나",
         "other": "상대",
         "none": "",
     }
     return labels.get(speaker, "")
+
+
+def _normalize_speaker(speaker: str) -> str:
+    if speaker == "me":
+        return "fox"
+    return speaker
 
 
 def draw_speech_box(
@@ -259,7 +320,7 @@ def draw_speech_box(
     text_fill = TEXT_COLOR
 
     cut_type = cut["type"]
-    speaker = cut["speaker"]
+    speaker = _normalize_speaker(cut["speaker"])
     speaker_label = _speaker_label(speaker)
     text = cut["text"]
 
@@ -338,7 +399,8 @@ def render_6panel(
         asset_area = (x1 + 24, y1 + int(ph * 0.40), x2 - 24, y2 - 20)
 
         asset_path = fox_paths[i]
-        if asset_path.exists():
+        show_fox = _normalize_speaker(post.cuts[i]["speaker"]) != "other"
+        if show_fox and asset_path.exists():
             paste_centered(canvas, load_rgba(asset_path), asset_area)
 
         draw_speech_box(draw, post.cuts[i], box)

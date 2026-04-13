@@ -1,4 +1,4 @@
-name: Daily Estj Fox Draft Generation
+name: Daily Worry Pipeline
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -12,18 +12,14 @@ permissions:
   contents: read
 
 jobs:
-  generate-drafts:
+  collect-and-render:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL || 'gpt-5.4' }}
-      MAX_TOPICS_PER_RUN: ${{ secrets.MAX_TOPICS_PER_RUN || '5' }}
-      LOCALE: ${{ secrets.LOCALE || 'ko-KR' }}
       TIMEZONE: ${{ secrets.TIMEZONE || 'Asia/Seoul' }}
-      OUTPUT_BASE_URL: ${{ secrets.OUTPUT_BASE_URL || '' }}
       OUTPUT_DIR: ./output
 
     steps:
@@ -40,13 +36,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run daily draft pipeline
-        run: python main.py
+      - name: Run daily worry pipeline
+        run: python daily_pipeline.py
 
-      - name: Upload rendered image artifacts
+      - name: Upload daily artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: estj-fox-rendered-images
+          name: estj-fox-daily-output
           path: output
           if-no-files-found: ignore

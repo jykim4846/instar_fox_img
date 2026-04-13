@@ -1,3 +1,2 @@
-Title,Topic,Category,TemplateType,Cut1,Cut2,Cut3,Caption,Hashtags,Status,AIScore,Recommended,PreviewImage1,PreviewImage2,PreviewImage3,Source,CreatedAt,PostDate
-필요한 거냐,무지출 챌린지,spending,carousel_3,시작은 쉬움,결제는 더 쉬움,유지가 어렵지,유행은 빨리 오고 카드값은 늦게 온다.,#절약 #소비 #챌린지,Draft,87,FALSE,./output/필요한_거냐/slide1.png,./output/필요한_거냐/slide2.png,./output/필요한_거냐/slide3.png,Google Trends RSS,2026-04-13T09:00:00+09:00,2026-04-13
-답 나왔네,읽씹 텐션,dating,carousel_3,답장은 느림,관심은 더 느림,행동이 결론,말보다 행동이 빠르다. 그게 답이다.,#연애 #썸 #현실조언,Approved,92,TRUE,./output/답_나왔네/slide1.png,./output/답_나왔네/slide2.png,./output/답_나왔네/slide3.png,Google Suggest Fallback,2026-04-14T09:00:00+09:00,2026-04-14
+Title,Worry,Category,Source,WorrySummary,WriterAnswer,SolutionTitle,SolutionBody,FinalLine,RenderedWorryImage,RenderedSolutionImage,Status,CreatedAt,PostDate
+답장은 우선순위다,답장 느린 사람 계속 만나도 되나,dating,Google Suggest (답장 느린 사람),반복 노출 4건 / 출처 다양성 2개,,여우리 답변,"한 번 느린 건 일정 문제다. 계속 느린 건 우선순위 문제다. 말 말고 반복되는 속도를 봐라.",반복된 느림은 답이다.,./output/답장은_우선순위다/worry_slide.png,./output/답장은_우선순위다/solution_slide.png,Collected,2026-04-14T09:00:00+09:00,2026-04-14

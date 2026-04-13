@@ -127,6 +127,11 @@ def filter_topics(
 
     filtered.sort(key=lambda item: (-item.priority, item.topic))
     selected = filtered[:max_topics]
+    if selected:
+        logger.info(
+            "선정 주제 샘플 | %s",
+            ", ".join(item.topic for item in selected[:5]),
+        )
     logger.info("주제 필터링 종료 | 출력 %s개", len(selected))
     return selected
 

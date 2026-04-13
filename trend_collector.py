@@ -36,13 +36,17 @@ class TrendCollector:
     def collect(self) -> list[TrendCandidate]:
         self.logger.info("트렌드 수집 시작")
         collected: list[TrendCandidate] = []
+        target_count = max(
+            self.settings.min_trend_candidates,
+            self.settings.max_topics_per_run * 6,
+        )
 
         for strategy in (
             self._collect_with_pytrends,
             self._collect_with_google_trends_rss,
             self._collect_with_google_suggestions,
         ):
-            if len(collected) >= self.settings.min_trend_candidates:
+            if len(collected) >= target_count:
                 break
 
             try:
@@ -56,6 +60,9 @@ class TrendCollector:
             except Exception as error:  # noqa: BLE001
                 self.logger.error("트렌드 수집 실패: %s | %s", strategy.__name__, error)
 
+        if collected:
+            sample_keywords = ", ".join(item.keyword for item in collected[:10])
+            self.logger.info("트렌드 후보 샘플 | %s", sample_keywords)
         self.logger.info("트렌드 수집 종료 | 총 %s개", len(collected))
         return collected
 

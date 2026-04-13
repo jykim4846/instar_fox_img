@@ -37,7 +37,9 @@ def run() -> int:
         logger=logger,
     )
     if not filtered_topics:
-        logger.warning("필터링 후 남은 주제가 없습니다.")
+        logger.warning(
+            "필터링 후 남은 주제가 없습니다. 필터 규칙에 맞는 생활형 키워드가 부족했을 가능성이 큽니다."
+        )
         return 0
 
     notion = Client(auth=settings.notion_api_key)

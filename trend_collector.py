@@ -120,16 +120,18 @@ class TrendCollector:
 
     def _collect_with_google_suggestions(self) -> list[TrendCandidate]:
         seeds = [
-            "요즘",
-            "직장인",
-            "소비",
-            "연애",
-            "습관",
-            "챌린지",
-            "앱",
-            "유행",
-            "밈",
-            "자기관리",
+            "요즘 밈",
+            "직장인 밈",
+            "무지출 챌린지",
+            "퇴근 후 루틴",
+            "자기관리 루틴",
+            "카톡 읽씹",
+            "요즘 앱",
+            "구독 서비스",
+            "출근 전 루틴",
+            "연애 밈",
+            "쇼핑 밈",
+            "인스타 밈",
         ]
         collected: list[TrendCandidate] = []
 

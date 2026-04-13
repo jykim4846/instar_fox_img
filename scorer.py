@@ -38,6 +38,7 @@ def score_candidate(content: GeneratedContent, topic: FilteredTopic) -> int:
     score += _category_bonus(topic.category)
     score += _source_bonus(topic.source)
     score += _keyword_clarity_bonus(topic.topic)
+    score += _trend_signal_bonus(topic.keyword, content)
     score += _cuts_quality_bonus(content)
     score += _caption_bonus(content.caption)
     score += _hashtags_bonus(content.hashtags)
@@ -80,6 +81,28 @@ def _keyword_clarity_bonus(topic: str) -> int:
     if token_count == 3:
         return 8
     return 4
+
+
+def _trend_signal_bonus(raw_keyword: str, content: GeneratedContent) -> int:
+    signals = (
+        "챌린지",
+        "밈",
+        "릴스",
+        "직장인",
+        "카톡",
+        "읽씹",
+        "구독",
+        "업데이트",
+        "출근",
+        "퇴근",
+        "루틴",
+        "쇼핑",
+        "앱",
+        "서비스",
+    )
+    text = " ".join([raw_keyword, content.topic, content.cut2, content.caption])
+    hits = sum(1 for signal in signals if signal in text)
+    return min(12, hits * 3)
 
 
 def _cuts_quality_bonus(content: GeneratedContent) -> int:

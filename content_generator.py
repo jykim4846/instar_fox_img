@@ -135,8 +135,11 @@ def build_system_prompt() -> str:
 너는 인스타 캐릭터 계정 estj_fox의 전속 콘텐츠 작가다.
 캐릭터는 귀여운 사막여우지만 말투는 ESTJ처럼 현실적이고 단정적이다.
 짧고 저장하고 싶은 문장을 만든다.
+트렌드 키워드를 그냥 설명하지 말고, 사람들이 왜 지금 그 단어를 보는지 생활 장면으로 번역한다.
+문장을 읽자마자 "아 이 상황" 이 떠올라야 한다.
 감정 과장, 위로형 문장, 블로그체, 설명체를 금지한다.
 정치, 범죄, 혐오, 재난, 성적 주제를 다루지 않는다.
+재미는 과장이 아니라 정확한 현실 인식에서 나온다.
 항상 JSON만 출력한다.
 """.strip()
 
@@ -147,6 +150,12 @@ topic: {topic.topic}
 raw_keyword: {topic.keyword}
 recommended_category: {topic.category}
 angle: {topic.angle}
+
+이 키워드를 다룰 때 목표:
+- raw_keyword 가 왜 요즘 보이는지 생활 장면이 느껴져야 함
+- 너무 추상적이거나 사전식이면 실패
+- 유행을 일반 공감 포인트로 날카롭게 번역할 것
+- 의료, 학술, 사전식 표현으로 흐르면 실패
 
 출력 스키마:
 {{
@@ -176,6 +185,8 @@ angle: {topic.angle}
 - cut1 은 훅
 - cut2 는 상황 설명
 - cut3 는 여우리의 팩트 한마디
+- cut2 에서는 "요즘 이래서 다들 이 단어를 보는구나"가 느껴져야 함
+- title 은 저장하고 싶은 한마디처럼 짧고 선명해야 함
 - 한 컷은 짧아야 함
 - 가능하면 18자 내외
 - 문장은 짧고 단정적이어야 함
@@ -184,6 +195,11 @@ angle: {topic.angle}
 - 블로그체 금지
 - 설명체 금지
 - 마지막 컷은 반드시 단정적인 결론
+- 명사만 던지는 단어장 말투 금지
+- 교훈처럼 훈계하는 문장 금지
+- 너무 평범한 자기계발 문장 금지
+- raw_keyword 와 연결되는 생활 상황이 보이지 않으면 다시 써야 함
+- 의료, 전문용어, 법률, 사전식 단어 금지
 - 해시태그는 정확히 3개
 - visuals 파일명은 아래 후보 중 어울리는 것을 고를 것
 - 배경 후보: blank.png, office.png, home.png, bed.png, chat.png, shopping.png
@@ -264,6 +280,7 @@ def validate_generated_content(
     for field_name in ("title", "cut1", "cut2", "cut3", "caption"):
         if not getattr(content, field_name):
             raise ValueError(f"{field_name} 이 비어 있습니다.")
+    _validate_copy_quality(content)
     return content
 
 
@@ -276,3 +293,40 @@ def _normalize_hashtag(value: str) -> str:
     if not cleaned.startswith("#"):
         cleaned = f"#{cleaned}"
     return cleaned
+
+
+def _validate_copy_quality(content: GeneratedContent) -> None:
+    banned_terms = {
+        "증상",
+        "진단",
+        "치료",
+        "질환",
+        "유산",
+        "탈구",
+        "설명",
+        "정의",
+        "뜻",
+        "영어로",
+        "우리 모두",
+        "힘내",
+        "속상",
+        "어쩌면",
+    }
+    text_blob = " ".join(
+        [
+            content.title,
+            content.cut1,
+            content.cut2,
+            content.cut3,
+            content.caption,
+            content.topic,
+        ]
+    )
+    if any(term in text_blob for term in banned_terms):
+        raise ValueError("사전식/의료식/위로형 표현이 포함되어 있습니다.")
+
+    if len(content.title.replace(" ", "")) > 18:
+        raise ValueError("title 이 너무 깁니다.")
+
+    if len(content.cut3.replace(" ", "")) < 5:
+        raise ValueError("cut3 가 너무 짧아 결론이 약합니다.")

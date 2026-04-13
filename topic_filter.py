@@ -68,6 +68,30 @@ MISLEADING_KEYWORDS = {
     "번역",
     "홍혜주",
     "연방",
+    "의 뜻",
+    "뜻",
+    "meaning",
+}
+
+MEDICAL_OR_REFERENCE_KEYWORDS = {
+    "유산",
+    "탈구",
+    "증상",
+    "진단",
+    "치료",
+    "질환",
+    "병원",
+    "약",
+    "복용",
+    "수술",
+    "염증",
+    "통증",
+    "검사",
+    "질병",
+    "의학",
+    "사전",
+    "백과",
+    "위키",
 }
 
 CATEGORY_STRICT_TOKENS = {
@@ -77,6 +101,29 @@ CATEGORY_STRICT_TOKENS = {
     "회사",
     "앱",
     "서비스",
+}
+
+TRENDY_LIFESTYLE_KEYWORDS = {
+    "무지출",
+    "챌린지",
+    "릴스",
+    "밈",
+    "쇼츠",
+    "구독",
+    "알림",
+    "업데이트",
+    "퇴근",
+    "출근",
+    "직장인",
+    "루틴",
+    "카톡",
+    "읽씹",
+    "배달",
+    "다이소",
+    "쿠팡",
+    "올영",
+    "텀블러",
+    "스레드",
 }
 
 CATEGORY_RULES: list[tuple[Category, tuple[str, ...], str, int]] = [
@@ -163,6 +210,8 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
         return None
     if _contains_misleading_keyword(lowered):
         return None
+    if _looks_like_medical_or_reference_term(lowered):
+        return None
     if _looks_too_specific(lowered):
         return None
 
@@ -174,7 +223,7 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
                 category=category,
                 angle=angle,
                 source=candidate.source,
-                priority=priority,
+                priority=priority + _priority_bonus(lowered),
             )
 
     if any(_matches_keyword(lowered, token) for token in APP_SERVICE_KEYWORDS):
@@ -184,7 +233,7 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
             category="lifestyle",
             angle="앱과 서비스 사용 문화에서 생기는 생활 습관 포인트로 비튼다",
             source=candidate.source,
-            priority=90,
+            priority=90 + _priority_bonus(lowered),
         )
 
     if _is_generic_lifestyle_keyword(lowered):
@@ -194,7 +243,7 @@ def classify_topic(candidate: TrendCandidate) -> FilteredTopic | None:
             category="trend",
             angle="일상 공감으로 바꾸기 쉬운 유행 키워드 관점으로 비튼다",
             source=candidate.source,
-            priority=80,
+            priority=80 + _priority_bonus(lowered),
         )
 
     return None
@@ -206,6 +255,17 @@ def _contains_sensitive_keyword(lowered_keyword: str) -> bool:
 
 def _contains_misleading_keyword(lowered_keyword: str) -> bool:
     return any(token in lowered_keyword for token in MISLEADING_KEYWORDS)
+
+
+def _looks_like_medical_or_reference_term(lowered_keyword: str) -> bool:
+    if any(token in lowered_keyword for token in MEDICAL_OR_REFERENCE_KEYWORDS):
+        return True
+
+    medical_prefixes = ("습관성", "급성", "만성")
+    if any(lowered_keyword.startswith(prefix) for prefix in medical_prefixes):
+        return True
+
+    return False
 
 
 def _looks_too_specific(lowered_keyword: str) -> bool:
@@ -259,6 +319,10 @@ def _matches_keyword(lowered_keyword: str, token: str) -> bool:
         return re.search(pattern, lowered_keyword) is not None
 
     return True
+
+
+def _priority_bonus(lowered_keyword: str) -> int:
+    return sum(5 for token in TRENDY_LIFESTYLE_KEYWORDS if token in lowered_keyword)
 
 
 def _normalize(value: str) -> str:

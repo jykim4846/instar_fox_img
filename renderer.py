@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import textwrap
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -129,7 +130,7 @@ class CarouselRenderer:
         )
 
     def _draw_fox(self, canvas: Image.Image, fox_path: Path, size: int) -> None:
-        fox = Image.open(fox_path).convert("RGBA")
+        fox = _remove_checkerboard_background(Image.open(fox_path).convert("RGBA"))
         fox.thumbnail((600, 600))
         x = (size - fox.width) // 2
         y = size - fox.height - 100
@@ -148,6 +149,11 @@ class CarouselRenderer:
         return self._load_font(min_size)
 
     def _load_font(self, size: int):
+        try:
+            return ImageFont.truetype("fonts/Pretendard-Bold.otf", size=size)
+        except OSError:
+            pass
+
         candidates = [
             self.settings.font_path,
             self.settings.fonts_dir / "Pretendard-Bold.otf",
@@ -177,3 +183,47 @@ def _to_output_ref(path: Path, settings: Settings) -> str:
         relative = path.relative_to(settings.output_dir).as_posix()
         return f"{settings.output_base_url.rstrip('/')}/{relative}"
     return str(path)
+
+
+def _remove_checkerboard_background(image: Image.Image) -> Image.Image:
+    cleaned = image.copy()
+    pixels = cleaned.load()
+    width, height = cleaned.size
+    queue: deque[tuple[int, int]] = deque()
+    visited: set[tuple[int, int]] = set()
+
+    for x in range(width):
+        queue.append((x, 0))
+        queue.append((x, height - 1))
+    for y in range(height):
+        queue.append((0, y))
+        queue.append((width - 1, y))
+
+    while queue:
+        x, y = queue.popleft()
+        if (x, y) in visited:
+            continue
+        visited.add((x, y))
+
+        r, g, b, a = pixels[x, y]
+        if a == 0 or not _looks_like_checker_bg(r, g, b):
+            continue
+
+        pixels[x, y] = (r, g, b, 0)
+
+        if x > 0:
+            queue.append((x - 1, y))
+        if x < width - 1:
+            queue.append((x + 1, y))
+        if y > 0:
+            queue.append((x, y - 1))
+        if y < height - 1:
+            queue.append((x, y + 1))
+
+    return cleaned
+
+
+def _looks_like_checker_bg(r: int, g: int, b: int) -> bool:
+    max_channel = max(r, g, b)
+    min_channel = min(r, g, b)
+    return max_channel >= 230 and (max_channel - min_channel) <= 18

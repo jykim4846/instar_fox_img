@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from content_generator import GeneratedContent
 from topic_filter import FilteredTopic
@@ -24,6 +25,9 @@ class RankedCandidate:
     preview_image1: str = ""
     preview_image2: str = ""
     preview_image3: str = ""
+    preview_image1_path: Path | None = None
+    preview_image2_path: Path | None = None
+    preview_image3_path: Path | None = None
     source: str = ""
     created_at: str = ""
 

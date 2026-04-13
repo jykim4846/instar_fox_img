@@ -17,6 +17,9 @@ from content_generator import GeneratedContent
 class RenderResult:
     safe_title: str
     output_dir: Path
+    slide1_path: Path
+    slide2_path: Path
+    slide3_path: Path
     slide1_ref: str
     slide2_ref: str
     slide3_ref: str
@@ -58,6 +61,9 @@ class CarouselRenderer:
         return RenderResult(
             safe_title=safe_title,
             output_dir=output_dir,
+            slide1_path=paths[0],
+            slide2_path=paths[1],
+            slide3_path=paths[2],
             slide1_ref=_to_output_ref(paths[0], self.settings),
             slide2_ref=_to_output_ref(paths[1], self.settings),
             slide3_ref=_to_output_ref(paths[2], self.settings),

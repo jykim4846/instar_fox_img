@@ -158,6 +158,7 @@ python main.py
    - 추천 후보 정렬
 8. `notion_writer.py`
    - Notion DB에 `Draft` 상태 저장
+   - 렌더된 3장을 Notion 페이지 본문에도 첨부
 
 ## 렌더링 규칙
 

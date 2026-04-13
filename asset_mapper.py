@@ -14,37 +14,55 @@ VISUAL_RULES: dict[Category, dict[str, str]] = {
         "background": "chat.png",
         "cut1": "phone_looking.png",
         "cut2": "judging.png",
-        "cut3": "closeup_face.png",
+        "cut3": "neutral_front.png",
+        "cut4": "annoyed.png",
+        "cut5": "sitting_blank.png",
+        "cut6": "closeup_face.png",
     },
     "work": {
         "background": "office.png",
         "cut1": "arms_crossed.png",
         "cut2": "pointing.png",
-        "cut3": "closeup_face.png",
+        "cut3": "judging.png",
+        "cut4": "annoyed.png",
+        "cut5": "sitting_blank.png",
+        "cut6": "closeup_face.png",
     },
     "selfcare": {
         "background": "home.png",
         "cut1": "lying_down.png",
         "cut2": "sitting_blank.png",
-        "cut3": "closeup_face.png",
+        "cut3": "neutral_front.png",
+        "cut4": "annoyed.png",
+        "cut5": "lying_down.png",
+        "cut6": "closeup_face.png",
     },
     "spending": {
         "background": "shopping.png",
         "cut1": "phone_looking.png",
         "cut2": "judging.png",
-        "cut3": "pointing.png",
+        "cut3": "neutral_front.png",
+        "cut4": "judging.png",
+        "cut5": "sitting_blank.png",
+        "cut6": "pointing.png",
     },
     "trend": {
         "background": "blank.png",
         "cut1": "neutral_front.png",
         "cut2": "judging.png",
-        "cut3": "closeup_face.png",
+        "cut3": "annoyed.png",
+        "cut4": "sitting_blank.png",
+        "cut5": "judging.png",
+        "cut6": "closeup_face.png",
     },
     "lifestyle": {
         "background": "home.png",
         "cut1": "neutral_front.png",
         "cut2": "sitting_blank.png",
-        "cut3": "closeup_face.png",
+        "cut3": "judging.png",
+        "cut4": "annoyed.png",
+        "cut5": "sitting_blank.png",
+        "cut6": "closeup_face.png",
     },
 }
 
@@ -52,9 +70,7 @@ VISUAL_RULES: dict[Category, dict[str, str]] = {
 @dataclass(frozen=True)
 class ResolvedVisuals:
     background: Path | None
-    cut1: Path
-    cut2: Path
-    cut3: Path
+    cuts: list[Path]
 
 
 def resolve_visuals(
@@ -69,20 +85,23 @@ def resolve_visuals(
         settings=settings,
         logger=logger,
     )
-    cut1 = _resolve_fox_asset(content.visuals.cut1, fallback["cut1"], settings, logger)
-    cut2 = _resolve_fox_asset(content.visuals.cut2, fallback["cut2"], settings, logger)
-    cut3 = _resolve_fox_asset(content.visuals.cut3, fallback["cut3"], settings, logger)
 
-    if not all([cut1, cut2, cut3]):
+    cut_paths: list[Path] = []
+    for index in range(1, 7):
+        cut_paths.append(
+            _resolve_fox_asset(
+                getattr(content.visuals, f"cut{index}"),
+                fallback[f"cut{index}"],
+                settings,
+                logger,
+            )
+        )
+
+    if any(path is None for path in cut_paths):
         logger.error("필수 에셋 누락으로 렌더링 불가 | title=%s", content.title)
         return None
 
-    return ResolvedVisuals(
-        background=background,
-        cut1=cut1,
-        cut2=cut2,
-        cut3=cut3,
-    )
+    return ResolvedVisuals(background=background, cuts=[path for path in cut_paths if path is not None])
 
 
 def _resolve_background(

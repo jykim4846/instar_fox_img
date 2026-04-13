@@ -12,6 +12,8 @@ from topic_filter import FilteredTopic
 
 
 Category = Literal["selfcare", "work", "dating", "spending", "trend", "lifestyle"]
+CutType = Literal["dialogue", "narration", "fact"]
+SpeakerType = Literal["fox", "me", "other", "none"]
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,16 @@ class VisualSelection:
     cut1: str = ""
     cut2: str = ""
     cut3: str = ""
+    cut4: str = ""
+    cut5: str = ""
+    cut6: str = ""
+
+
+@dataclass(frozen=True)
+class CutLine:
+    type: CutType
+    speaker: SpeakerType
+    text: str
 
 
 CONTENT_SCHEMA: dict[str, Any] = {
@@ -35,10 +47,22 @@ CONTENT_SCHEMA: dict[str, Any] = {
                 "type": "string",
                 "enum": ["selfcare", "work", "dating", "spending", "trend", "lifestyle"],
             },
-            "template_type": {"type": "string", "enum": ["carousel_3"]},
-            "cut1": {"type": "string"},
-            "cut2": {"type": "string"},
-            "cut3": {"type": "string"},
+            "template_type": {"type": "string", "enum": ["webtoon_6"]},
+            "cuts": {
+                "type": "array",
+                "minItems": 6,
+                "maxItems": 6,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["dialogue", "narration", "fact"]},
+                        "speaker": {"type": "string", "enum": ["fox", "me", "other", "none"]},
+                        "text": {"type": "string"},
+                    },
+                    "required": ["type", "speaker", "text"],
+                    "additionalProperties": False,
+                },
+            },
             "caption": {"type": "string"},
             "hashtags": {
                 "type": "array",
@@ -51,8 +75,11 @@ CONTENT_SCHEMA: dict[str, Any] = {
                     "cut1": {"type": "string"},
                     "cut2": {"type": "string"},
                     "cut3": {"type": "string"},
+                    "cut4": {"type": "string"},
+                    "cut5": {"type": "string"},
+                    "cut6": {"type": "string"},
                 },
-                "required": ["background", "cut1", "cut2", "cut3"],
+                "required": ["background", "cut1", "cut2", "cut3", "cut4", "cut5", "cut6"],
                 "additionalProperties": False,
             },
         },
@@ -61,9 +88,7 @@ CONTENT_SCHEMA: dict[str, Any] = {
             "topic",
             "category",
             "template_type",
-            "cut1",
-            "cut2",
-            "cut3",
+            "cuts",
             "caption",
             "hashtags",
             "visuals",
@@ -79,12 +104,34 @@ class GeneratedContent:
     topic: str
     category: Category
     template_type: str
-    cut1: str
-    cut2: str
-    cut3: str
+    cuts: list[CutLine]
     caption: str
     hashtags: list[str]
     visuals: VisualSelection = field(default_factory=VisualSelection)
+
+    @property
+    def cut1(self) -> str:
+        return self.cuts[0].text
+
+    @property
+    def cut2(self) -> str:
+        return self.cuts[1].text
+
+    @property
+    def cut3(self) -> str:
+        return self.cuts[2].text
+
+    @property
+    def cut4(self) -> str:
+        return self.cuts[3].text
+
+    @property
+    def cut5(self) -> str:
+        return self.cuts[4].text
+
+    @property
+    def cut6(self) -> str:
+        return self.cuts[5].text
 
 
 class ContentGenerator:
@@ -103,7 +150,7 @@ class ContentGenerator:
                         {"role": "user", "content": build_user_prompt(topic)},
                     ],
                     text={"format": CONTENT_SCHEMA},
-                    max_output_tokens=700,
+                    max_output_tokens=900,
                 )
 
                 raw_json = (response.output_text or "").strip()
@@ -112,11 +159,7 @@ class ContentGenerator:
 
                 payload = json.loads(raw_json)
                 content = validate_generated_content(payload, expected_topic=topic)
-                self.logger.info(
-                    "콘텐츠 생성 성공 | topic=%s | attempt=%s",
-                    topic.topic,
-                    attempt,
-                )
+                self.logger.info("콘텐츠 생성 성공 | topic=%s | attempt=%s", topic.topic, attempt)
                 return content
             except Exception as error:  # noqa: BLE001
                 self.logger.warning(
@@ -135,12 +178,10 @@ def build_system_prompt() -> str:
 너는 인스타 캐릭터 계정 estj_fox의 전속 콘텐츠 작가다.
 캐릭터는 귀여운 사막여우지만 말투는 ESTJ처럼 현실적이고 단정적이다.
 짧고 저장하고 싶은 문장을 만든다.
-트렌드 키워드를 그냥 설명하지 말고, 사람들이 왜 지금 그 단어를 보는지 생활 장면으로 번역한다.
-문장을 읽자마자 "아 이 상황" 이 떠올라야 한다.
 감정 과장, 위로형 문장, 블로그체, 설명체를 금지한다.
 정치, 범죄, 혐오, 재난, 성적 주제를 다루지 않는다.
-재미는 과장이 아니라 정확한 현실 인식에서 나온다.
-항상 JSON만 출력한다.
+출력은 반드시 JSON만 한다.
+6컷 웹툰 구조로 쓴다.
 """.strip()
 
 
@@ -151,60 +192,63 @@ raw_keyword: {topic.keyword}
 recommended_category: {topic.category}
 angle: {topic.angle}
 
-이 키워드를 다룰 때 목표:
-- raw_keyword 가 왜 요즘 보이는지 생활 장면이 느껴져야 함
-- 너무 추상적이거나 사전식이면 실패
-- 유행을 일반 공감 포인트로 날카롭게 번역할 것
-- 의료, 학술, 사전식 표현으로 흐르면 실패
+규칙:
+- 총 6컷
+- 1컷: 상황 시작
+- 2컷: 상황 확대
+- 3컷: 공감 포인트
+- 4컷: 자기합리화/전개
+- 5컷: 흐름 전환
+- 6컷: 여우리의 팩트 한마디
+- 각 컷은 짧게
+- 마지막 컷은 가장 강하게
+- 대화형 장면이 우선이다
+- 가능한 컷 1~4는 대화나 속말로 진행한다
+- 컷 6은 가능하면 speaker 가 fox 여야 한다
+
+추가 규칙:
+- JSON만 출력
+- 모든 텍스트는 한국어
+- topic 값은 "{topic.topic}" 유지
+- category 값은 "{topic.category}" 유지
+- template_type 은 반드시 "webtoon_6"
+- title 은 저장하고 싶은 한마디처럼 짧고 선명해야 함
+- 설명하지 말고 장면으로 써라
+- 위로하지 말고 정리해라
+- 명언체, 교훈체, 블로그체 금지
+- raw_keyword 가 왜 지금 보이는지 생활 장면이 느껴져야 함
+- 각 컷은 가능하면 18자 내외
+- 해시태그는 정확히 3개
+- visuals 파일명은 아래 후보 중 어울리는 것을 고를 것
+- 배경 후보: blank.png, office.png, home.png, bed.png, chat.png, shopping.png
+- 여우 후보: neutral_front.png, annoyed.png, judging.png, arms_crossed.png, pointing.png, phone_looking.png, lying_down.png, sitting_blank.png, closeup_face.png, tiny_icon.png
 
 출력 스키마:
 {{
   "title": "문자열",
   "topic": "문자열",
   "category": "dating | work | selfcare | spending | trend | lifestyle",
-  "template_type": "carousel_3",
-  "cut1": "문자열",
-  "cut2": "문자열",
-  "cut3": "문자열",
+  "template_type": "webtoon_6",
+  "cuts": [
+    {{"type": "dialogue", "speaker": "other", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "me", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "me | other | fox", "text": "문자열"}},
+    {{"type": "dialogue", "speaker": "me | other | fox", "text": "문자열"}},
+    {{"type": "narration | dialogue", "speaker": "none | me | other | fox", "text": "문자열"}},
+    {{"type": "fact | dialogue", "speaker": "fox", "text": "문자열"}}
+  ],
   "caption": "문자열",
   "hashtags": ["#태그1", "#태그2", "#태그3"],
   "visuals": {{
     "background": "파일명.png",
     "cut1": "파일명.png",
     "cut2": "파일명.png",
-    "cut3": "파일명.png"
+    "cut3": "파일명.png",
+    "cut4": "파일명.png",
+    "cut5": "파일명.png",
+    "cut6": "파일명.png"
   }}
 }}
-
-규칙:
-- JSON만 출력
-- 모든 텍스트는 한국어
-- topic 값은 "{topic.topic}" 유지
-- category 값은 "{topic.category}" 유지
-- template_type 은 반드시 "carousel_3"
-- cut1 은 훅
-- cut2 는 상황 설명
-- cut3 는 여우리의 팩트 한마디
-- cut2 에서는 "요즘 이래서 다들 이 단어를 보는구나"가 느껴져야 함
-- title 은 저장하고 싶은 한마디처럼 짧고 선명해야 함
-- 한 컷은 짧아야 함
-- 가능하면 18자 내외
-- 문장은 짧고 단정적이어야 함
-- 감정 과장 금지
-- 위로형 문장 금지
-- 블로그체 금지
-- 설명체 금지
-- 마지막 컷은 반드시 단정적인 결론
-- 명사만 던지는 단어장 말투 금지
-- 교훈처럼 훈계하는 문장 금지
-- 너무 평범한 자기계발 문장 금지
-- raw_keyword 와 연결되는 생활 상황이 보이지 않으면 다시 써야 함
-- 의료, 전문용어, 법률, 사전식 단어 금지
-- 해시태그는 정확히 3개
-- visuals 파일명은 아래 후보 중 어울리는 것을 고를 것
-- 배경 후보: blank.png, office.png, home.png, bed.png, chat.png, shopping.png
-- 여우 후보: neutral_front.png, annoyed.png, judging.png, arms_crossed.png, pointing.png, phone_looking.png, lying_down.png, sitting_blank.png, closeup_face.png, tiny_icon.png
-- 존재하지 않을 것 같은 파일명은 만들지 말 것
 """.strip()
 
 
@@ -213,13 +257,11 @@ def validate_generated_content(
     expected_topic: FilteredTopic,
 ) -> GeneratedContent:
     required_keys = {
-        "title",
-        "topic",
-        "category",
-        "template_type",
-        "cut1",
-        "cut2",
-        "cut3",
+    "title",
+    "topic",
+    "category",
+    "template_type",
+        "cuts",
         "caption",
         "hashtags",
         "visuals",
@@ -229,14 +271,7 @@ def validate_generated_content(
         raise ValueError(f"응답 필드 누락: {sorted(missing)}")
 
     category = str(payload["category"]).strip()
-    if category not in {
-        "selfcare",
-        "work",
-        "dating",
-        "spending",
-        "trend",
-        "lifestyle",
-    }:
+    if category not in {"selfcare", "work", "dating", "spending", "trend", "lifestyle"}:
         raise ValueError(f"허용되지 않은 category: {category}")
     if category != expected_topic.category:
         raise ValueError(
@@ -244,8 +279,8 @@ def validate_generated_content(
         )
 
     template_type = str(payload["template_type"]).strip()
-    if template_type != "carousel_3":
-        raise ValueError("template_type 은 carousel_3 이어야 합니다.")
+    if template_type != "webtoon_6":
+        raise ValueError("template_type 은 webtoon_6 이어야 합니다.")
 
     hashtags_raw = payload["hashtags"]
     if not isinstance(hashtags_raw, list) or not hashtags_raw:
@@ -259,14 +294,31 @@ def validate_generated_content(
     if len(hashtags) < 3:
         raise ValueError("hashtags 는 최소 3개가 필요합니다.")
 
+    cuts_raw = payload["cuts"]
+    if not isinstance(cuts_raw, list) or len(cuts_raw) != 6:
+        raise ValueError("cuts 는 6개 객체 리스트여야 합니다.")
+
+    cuts: list[CutLine] = []
+    for item in cuts_raw:
+        if not isinstance(item, dict):
+            raise ValueError("cuts 각 항목은 객체여야 합니다.")
+        cut_type = str(item.get("type", "")).strip()
+        speaker = str(item.get("speaker", "")).strip()
+        text = _clean_text(str(item.get("text", "")))
+        if cut_type not in {"dialogue", "narration", "fact"}:
+            raise ValueError(f"허용되지 않은 cut type: {cut_type}")
+        if speaker not in {"fox", "me", "other", "none"}:
+            raise ValueError(f"허용되지 않은 speaker: {speaker}")
+        if not text:
+            raise ValueError("컷 텍스트가 비어 있습니다.")
+        cuts.append(CutLine(type=cut_type, speaker=speaker, text=text))
+
     content = GeneratedContent(
         title=_clean_text(str(payload["title"])),
         topic=expected_topic.topic,
         category=category,
         template_type=template_type,
-        cut1=_clean_text(str(payload["cut1"])),
-        cut2=_clean_text(str(payload["cut2"])),
-        cut3=_clean_text(str(payload["cut3"])),
+        cuts=cuts,
         caption=_clean_text(str(payload["caption"])),
         hashtags=hashtags[:3],
         visuals=VisualSelection(
@@ -274,10 +326,13 @@ def validate_generated_content(
             cut1=_clean_text(str(visuals_raw.get("cut1", ""))),
             cut2=_clean_text(str(visuals_raw.get("cut2", ""))),
             cut3=_clean_text(str(visuals_raw.get("cut3", ""))),
+            cut4=_clean_text(str(visuals_raw.get("cut4", ""))),
+            cut5=_clean_text(str(visuals_raw.get("cut5", ""))),
+            cut6=_clean_text(str(visuals_raw.get("cut6", ""))),
         ),
     )
 
-    for field_name in ("title", "cut1", "cut2", "cut3", "caption"):
+    for field_name in ("title", "caption"):
         if not getattr(content, field_name):
             raise ValueError(f"{field_name} 이 비어 있습니다.")
     _validate_copy_quality(content)
@@ -315,9 +370,7 @@ def _validate_copy_quality(content: GeneratedContent) -> None:
     text_blob = " ".join(
         [
             content.title,
-            content.cut1,
-            content.cut2,
-            content.cut3,
+            *[cut.text for cut in content.cuts],
             content.caption,
             content.topic,
         ]
@@ -328,5 +381,11 @@ def _validate_copy_quality(content: GeneratedContent) -> None:
     if len(content.title.replace(" ", "")) > 18:
         raise ValueError("title 이 너무 깁니다.")
 
-    if len(content.cut3.replace(" ", "")) < 5:
-        raise ValueError("cut3 가 너무 짧아 결론이 약합니다.")
+    if content.cuts[5].speaker != "fox":
+        raise ValueError("마지막 컷은 fox 화자여야 합니다.")
+
+    if content.cuts[5].type not in {"fact", "dialogue"}:
+        raise ValueError("마지막 컷은 fact 또는 dialogue 타입이어야 합니다.")
+
+    if len(content.cut6.replace(" ", "")) < 5:
+        raise ValueError("cut6 가 너무 짧아 결론이 약합니다.")

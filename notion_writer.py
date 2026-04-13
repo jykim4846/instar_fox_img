@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from notion_client import Client
 
@@ -30,14 +29,15 @@ class NotionWriter:
             "Cut1": {"rich_text": [_text_block(candidate.cut1)]},
             "Cut2": {"rich_text": [_text_block(candidate.cut2)]},
             "Cut3": {"rich_text": [_text_block(candidate.cut3)]},
+            "Cut4": {"rich_text": [_text_block(candidate.cut4)]},
+            "Cut5": {"rich_text": [_text_block(candidate.cut5)]},
+            "Cut6": {"rich_text": [_text_block(candidate.cut6)]},
             "Caption": {"rich_text": [_text_block(candidate.caption)]},
             "Hashtags": {"rich_text": [_text_block(hashtags)]},
             "Status": {"status": {"name": "Draft"}},
             "AIScore": {"number": candidate.ai_score},
             "Recommended": {"checkbox": candidate.recommended},
             "PreviewImage1": {"rich_text": [_text_block(candidate.preview_image1)]},
-            "PreviewImage2": {"rich_text": [_text_block(candidate.preview_image2)]},
-            "PreviewImage3": {"rich_text": [_text_block(candidate.preview_image3)]},
             "Source": {"rich_text": [_text_block(candidate.source)]},
             "CreatedAt": {"date": {"start": candidate.created_at}},
             "PostDate": {"date": {"start": candidate.post_date}},
@@ -49,16 +49,13 @@ class NotionWriter:
                 properties=property_map,
             )
             page_id = page["id"]
+            self._append_summary(page_id, candidate)
             try:
-                uploaded_urls = self._attach_rendered_images(page_id, candidate)
-                if uploaded_urls:
+                uploaded_url = self._attach_rendered_image(page_id, candidate)
+                if uploaded_url:
                     self.notion.pages.update(
                         page_id=page_id,
-                        properties={
-                            "PreviewImage1": {"rich_text": [_text_block(uploaded_urls[0])]},
-                            "PreviewImage2": {"rich_text": [_text_block(uploaded_urls[1])]},
-                            "PreviewImage3": {"rich_text": [_text_block(uploaded_urls[2])]},
-                        },
+                        properties={"PreviewImage1": {"rich_text": [_text_block(uploaded_url)]}},
                     )
             except Exception as error:  # noqa: BLE001
                 self.logger.error("Notion 이미지 첨부 실패 | title=%s | %s", candidate.title, error)
@@ -82,18 +79,14 @@ class NotionWriter:
                         properties=filtered,
                     )
                     page_id = page["id"]
+                    self._append_summary(page_id, candidate)
                     try:
-                        uploaded_urls = self._attach_rendered_images(page_id, candidate)
-                        if uploaded_urls:
-                            updates = {}
-                            if "PreviewImage1" not in missing_props:
-                                updates["PreviewImage1"] = {"rich_text": [_text_block(uploaded_urls[0])]}
-                            if "PreviewImage2" not in missing_props:
-                                updates["PreviewImage2"] = {"rich_text": [_text_block(uploaded_urls[1])]}
-                            if "PreviewImage3" not in missing_props:
-                                updates["PreviewImage3"] = {"rich_text": [_text_block(uploaded_urls[2])]}
-                            if updates:
-                                self.notion.pages.update(page_id=page_id, properties=updates)
+                        uploaded_url = self._attach_rendered_image(page_id, candidate)
+                        if uploaded_url and "PreviewImage1" not in missing_props:
+                            self.notion.pages.update(
+                                page_id=page_id,
+                                properties={"PreviewImage1": {"rich_text": [_text_block(uploaded_url)]}},
+                            )
                     except Exception as image_error:  # noqa: BLE001
                         self.logger.error(
                             "Notion 이미지 첨부 실패 | title=%s | %s",
@@ -115,57 +108,53 @@ class NotionWriter:
             self.logger.error("Notion 저장 실패 | title=%s | %s", candidate.title, error)
             return False
 
-    def _attach_rendered_images(
+    def _append_summary(self, page_id: str, candidate: RankedCandidate) -> None:
+        children = [
+            {
+                "object": "block",
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "6-Cut Script"}}]},
+            }
+        ]
+        for index, text in enumerate(
+            candidate.script_lines(),
+            start=1,
+        ):
+            children.append(_caption_block(f"{index}컷. {text}"))
+        self.notion.blocks.children.append(block_id=page_id, children=children)
+
+    def _attach_rendered_image(
         self,
         page_id: str,
         candidate: RankedCandidate,
-    ) -> list[str]:
-        paths = [
-            candidate.preview_image1_path,
-            candidate.preview_image2_path,
-            candidate.preview_image3_path,
-        ]
+    ) -> str | None:
+        path = candidate.preview_image1_path
+        if path is None or not path.exists():
+            self.logger.warning("미리보기 이미지 파일 없음 | %s", path)
+            return None
 
-        if not all(paths):
-            return []
-
-        uploaded_urls: list[str] = []
-        heading_added = False
-
-        for index, path in enumerate(paths, start=1):
-            if path is None or not path.exists():
-                self.logger.warning("미리보기 이미지 파일 없음 | %s", path)
-                return []
-
-            file_upload = self.notion.file_uploads.create(
-                mode="single_part",
-                filename=path.name,
-                content_type="image/png",
+        file_upload = self.notion.file_uploads.create(
+            mode="single_part",
+            filename=path.name,
+            content_type="image/png",
+        )
+        file_upload_id = file_upload["id"]
+        with path.open("rb") as image_file:
+            self.notion.file_uploads.send(
+                file_upload_id=file_upload_id,
+                file=(path.name, image_file, "image/png"),
             )
-            file_upload_id = file_upload["id"]
-            with path.open("rb") as image_file:
-                self.notion.file_uploads.send(
-                    file_upload_id=file_upload_id,
-                    file=(path.name, image_file, "image/png"),
-                )
 
-            children = []
-            if not heading_added:
-                children.append(
-                    {
-                        "object": "block",
-                        "type": "heading_2",
-                        "heading_2": {
-                            "rich_text": [{"type": "text", "text": {"content": "Rendered Slides"}}]
-                        },
-                    }
-                )
-                heading_added = True
-
-            children.append(
-                _caption_block(f"Slide {index}")
-            )
-            children.append(
+        response = self.notion.blocks.children.append(
+            block_id=page_id,
+            children=[
+                {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {
+                        "rich_text": [{"type": "text", "text": {"content": "Rendered Webtoon"}}]
+                    },
+                },
                 {
                     "object": "block",
                     "type": "image",
@@ -174,12 +163,10 @@ class NotionWriter:
                         "type": "file_upload",
                         "file_upload": {"id": file_upload_id},
                     },
-                }
-            )
-            response = self.notion.blocks.children.append(block_id=page_id, children=children)
-            uploaded_url = _extract_latest_image_url(response)
-            uploaded_urls.append(uploaded_url or str(path))
-        return uploaded_urls
+                },
+            ],
+        )
+        return _extract_latest_image_url(response) or str(path)
 
 
 def _extract_latest_image_url(response: dict) -> str | None:

@@ -16,6 +16,9 @@ class RankedCandidate:
     cut1: str
     cut2: str
     cut3: str
+    cut4: str
+    cut5: str
+    cut6: str
     caption: str
     hashtags: list[str]
     ai_score: int
@@ -23,13 +26,12 @@ class RankedCandidate:
     preview_text: str
     post_date: str
     preview_image1: str = ""
-    preview_image2: str = ""
-    preview_image3: str = ""
     preview_image1_path: Path | None = None
-    preview_image2_path: Path | None = None
-    preview_image3_path: Path | None = None
     source: str = ""
     created_at: str = ""
+
+    def script_lines(self) -> list[str]:
+        return [self.cut1, self.cut2, self.cut3, self.cut4, self.cut5, self.cut6]
 
 
 def score_candidate(content: GeneratedContent, topic: FilteredTopic) -> int:
@@ -46,7 +48,7 @@ def score_candidate(content: GeneratedContent, topic: FilteredTopic) -> int:
 
 
 def build_preview_text(content: GeneratedContent) -> str:
-    preview = f"{content.cut1} | {content.cut3}"
+    preview = f"{content.cut1} | {content.cut3} | {content.cut6}"
     return preview[:120]
 
 
@@ -100,29 +102,27 @@ def _trend_signal_bonus(raw_keyword: str, content: GeneratedContent) -> int:
         "앱",
         "서비스",
     )
-    text = " ".join([raw_keyword, content.topic, content.cut2, content.caption])
+    text = " ".join([raw_keyword, content.topic, content.cut2, content.cut3, content.cut4, content.caption])
     hits = sum(1 for signal in signals if signal in text)
     return min(12, hits * 3)
 
 
 def _cuts_quality_bonus(content: GeneratedContent) -> int:
-    cuts = (content.cut1, content.cut2, content.cut3)
+    cuts = (content.cut1, content.cut2, content.cut3, content.cut4, content.cut5, content.cut6)
     bonus = 0
 
     for cut in cuts:
         length = len(cut.replace(" ", ""))
         if 6 <= length <= 18:
-            bonus += 8
+            bonus += 4
         elif length <= 24:
-            bonus += 5
-        else:
             bonus += 2
 
-    if len({cut.strip() for cut in cuts}) == 3:
+    if len({cut.strip() for cut in cuts}) == 6:
         bonus += 4
 
-    if any(token in content.cut3 for token in ("답", "굳이", "낭비", "어렵지", "필요", "계속")):
-        bonus += 3
+    if any(token in content.cut6 for token in ("답", "굳이", "낭비", "어렵지", "필요", "계속")):
+        bonus += 4
 
     return min(30, bonus)
 

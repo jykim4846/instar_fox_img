@@ -74,7 +74,7 @@ ASSETS_DIR=assets
 FOX_ASSETS_DIR=assets/fox
 BACKGROUND_ASSETS_DIR=assets/backgrounds
 FONTS_DIR=fonts
-FONT_PATH=fonts/Pretendard-Bold.ttf
+FONT_PATH=fonts/Pretendard-Bold.otf
 IMAGE_SIZE=1080
 ```
 
@@ -165,7 +165,7 @@ python main.py
 - 텍스트: 상단 중앙
 - 캐릭터: 중앙 하단
 - 여우 PNG 비율 유지
-- 폰트: `fonts/Pretendard-Bold.ttf` 우선
+- 폰트: `fonts/Pretendard-Bold.otf` 우선
 - 폰트가 없으면 기본 폰트 fallback
 - 배경 PNG가 없으면 단색 배경으로 fallback
 

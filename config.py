@@ -32,7 +32,7 @@ class Settings:
     fox_assets_dir: Path = Path("assets/fox")
     background_assets_dir: Path = Path("assets/backgrounds")
     fonts_dir: Path = Path("fonts")
-    font_path: Path = Path("fonts/Pretendard-Bold.ttf")
+    font_path: Path = Path("fonts/Pretendard-Bold.otf")
     image_size: int = 1080
     default_background_color: str = "#F7F3EA"
 
@@ -79,6 +79,6 @@ def load_settings(env_file: str | None = None) -> Settings:
         fox_assets_dir=Path(_get_env("FOX_ASSETS_DIR", "assets/fox")),
         background_assets_dir=Path(_get_env("BACKGROUND_ASSETS_DIR", "assets/backgrounds")),
         fonts_dir=Path(_get_env("FONTS_DIR", "fonts")),
-        font_path=Path(_get_env("FONT_PATH", "fonts/Pretendard-Bold.ttf")),
+        font_path=Path(_get_env("FONT_PATH", "fonts/Pretendard-Bold.otf")),
         image_size=_get_int_env("IMAGE_SIZE", 1080),
     )

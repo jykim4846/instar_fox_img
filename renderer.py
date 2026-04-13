@@ -150,6 +150,7 @@ class CarouselRenderer:
     def _load_font(self, size: int):
         candidates = [
             self.settings.font_path,
+            self.settings.fonts_dir / "Pretendard-Bold.otf",
             self.settings.fonts_dir / "Pretendard-Bold.ttf",
             Path("/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"),
             Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),

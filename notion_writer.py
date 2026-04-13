@@ -22,30 +22,31 @@ class NotionWriter:
 
     def write_draft(self, candidate: RankedCandidate) -> bool:
         hashtags = " ".join(candidate.hashtags)
+        property_map = {
+            "Title": {"title": [_text_block(candidate.title)]},
+            "Topic": {"rich_text": [_text_block(candidate.topic)]},
+            "Category": {"select": {"name": candidate.category}},
+            "TemplateType": {"select": {"name": candidate.template_type}},
+            "Cut1": {"rich_text": [_text_block(candidate.cut1)]},
+            "Cut2": {"rich_text": [_text_block(candidate.cut2)]},
+            "Cut3": {"rich_text": [_text_block(candidate.cut3)]},
+            "Caption": {"rich_text": [_text_block(candidate.caption)]},
+            "Hashtags": {"rich_text": [_text_block(hashtags)]},
+            "Status": {"status": {"name": "Draft"}},
+            "AIScore": {"number": candidate.ai_score},
+            "Recommended": {"checkbox": candidate.recommended},
+            "PreviewImage1": {"rich_text": [_text_block(candidate.preview_image1)]},
+            "PreviewImage2": {"rich_text": [_text_block(candidate.preview_image2)]},
+            "PreviewImage3": {"rich_text": [_text_block(candidate.preview_image3)]},
+            "Source": {"rich_text": [_text_block(candidate.source)]},
+            "CreatedAt": {"date": {"start": candidate.created_at}},
+            "PostDate": {"date": {"start": candidate.post_date}},
+        }
 
         try:
             page = self.notion.pages.create(
                 parent={"database_id": self.settings.notion_database_id},
-                properties={
-                    "Title": {"title": [_text_block(candidate.title)]},
-                    "Topic": {"rich_text": [_text_block(candidate.topic)]},
-                    "Category": {"select": {"name": candidate.category}},
-                    "TemplateType": {"select": {"name": candidate.template_type}},
-                    "Cut1": {"rich_text": [_text_block(candidate.cut1)]},
-                    "Cut2": {"rich_text": [_text_block(candidate.cut2)]},
-                    "Cut3": {"rich_text": [_text_block(candidate.cut3)]},
-                    "Caption": {"rich_text": [_text_block(candidate.caption)]},
-                    "Hashtags": {"rich_text": [_text_block(hashtags)]},
-                    "Status": {"status": {"name": "Draft"}},
-                    "AIScore": {"number": candidate.ai_score},
-                    "Recommended": {"checkbox": candidate.recommended},
-                    "PreviewImage1": {"rich_text": [_text_block(candidate.preview_image1)]},
-                    "PreviewImage2": {"rich_text": [_text_block(candidate.preview_image2)]},
-                    "PreviewImage3": {"rich_text": [_text_block(candidate.preview_image3)]},
-                    "Source": {"rich_text": [_text_block(candidate.source)]},
-                    "CreatedAt": {"date": {"start": candidate.created_at}},
-                    "PostDate": {"date": {"start": candidate.post_date}},
-                },
+                properties=property_map,
             )
             page_id = page["id"]
             try:
@@ -69,6 +70,48 @@ class NotionWriter:
             )
             return True
         except Exception as error:  # noqa: BLE001
+            missing_props = _extract_missing_properties(str(error))
+            if missing_props:
+                self.logger.warning("누락된 Notion 속성은 건너뜁니다 | %s", ", ".join(missing_props))
+                try:
+                    filtered = {
+                        key: value for key, value in property_map.items() if key not in missing_props
+                    }
+                    page = self.notion.pages.create(
+                        parent={"database_id": self.settings.notion_database_id},
+                        properties=filtered,
+                    )
+                    page_id = page["id"]
+                    try:
+                        uploaded_urls = self._attach_rendered_images(page_id, candidate)
+                        if uploaded_urls:
+                            updates = {}
+                            if "PreviewImage1" not in missing_props:
+                                updates["PreviewImage1"] = {"rich_text": [_text_block(uploaded_urls[0])]}
+                            if "PreviewImage2" not in missing_props:
+                                updates["PreviewImage2"] = {"rich_text": [_text_block(uploaded_urls[1])]}
+                            if "PreviewImage3" not in missing_props:
+                                updates["PreviewImage3"] = {"rich_text": [_text_block(uploaded_urls[2])]}
+                            if updates:
+                                self.notion.pages.update(page_id=page_id, properties=updates)
+                    except Exception as image_error:  # noqa: BLE001
+                        self.logger.error(
+                            "Notion 이미지 첨부 실패 | title=%s | %s",
+                            candidate.title,
+                            image_error,
+                        )
+                    self.logger.info(
+                        "Notion 저장 성공(부분 속성) | title=%s | 누락 속성=%s",
+                        candidate.title,
+                        ", ".join(missing_props),
+                    )
+                    return True
+                except Exception as retry_error:  # noqa: BLE001
+                    self.logger.error(
+                        "Notion 재시도 저장 실패 | title=%s | %s",
+                        candidate.title,
+                        retry_error,
+                    )
             self.logger.error("Notion 저장 실패 | title=%s | %s", candidate.title, error)
             return False
 
@@ -164,3 +207,15 @@ def _text_block(value: str) -> dict:
         "type": "text",
         "text": {"content": value[:2000]},
     }
+
+
+def _extract_missing_properties(error_message: str) -> list[str]:
+    properties: list[str] = []
+    for chunk in error_message.split("."):
+        chunk = chunk.strip()
+        if "is not a property that exists" not in chunk:
+            continue
+        property_name = chunk.replace("is not a property that exists", "").strip()
+        if property_name:
+            properties.append(property_name)
+    return properties

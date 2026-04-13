@@ -4,5 +4,9 @@ __pycache__/
 *.pyc
 logs/
 .omx/
-.canva_refresh_token
-canva_templates.json
+output/
+.DS_Store
+assets/.DS_Store
+assets/fox/.DS_Store
+assets/backgrounds/.DS_Store
+fonts/.DS_Store

@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+import re
+import textwrap
+from dataclasses import dataclass
+from pathlib import Path
+
+from PIL import Image, ImageColor, ImageDraw, ImageFont
+
+from asset_mapper import ResolvedVisuals
+from config import Settings
+from content_generator import GeneratedContent
+
+
+@dataclass(frozen=True)
+class RenderResult:
+    safe_title: str
+    output_dir: Path
+    slide1_ref: str
+    slide2_ref: str
+    slide3_ref: str
+
+
+class CarouselRenderer:
+    def __init__(self, settings: Settings, logger) -> None:
+        self.settings = settings
+        self.logger = logger
+
+    def render(self, content: GeneratedContent, visuals: ResolvedVisuals) -> RenderResult | None:
+        safe_title = _safe_slug(content.title)
+        output_dir = self.settings.output_dir / safe_title
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        slide_specs = [
+            ("slide1.png", content.cut1, visuals.cut1),
+            ("slide2.png", content.cut2, visuals.cut2),
+            ("slide3.png", content.cut3, visuals.cut3),
+        ]
+
+        paths: list[Path] = []
+        for filename, body, fox_path in slide_specs:
+            output_path = output_dir / filename
+            try:
+                self._render_single_slide(
+                    title=content.title,
+                    body=body,
+                    fox_path=fox_path,
+                    background_path=visuals.background,
+                    output_path=output_path,
+                )
+                self.logger.info("렌더링 성공 | %s", output_path)
+                paths.append(output_path)
+            except Exception as error:  # noqa: BLE001
+                self.logger.error("렌더링 실패 | %s | %s", output_path, error)
+                return None
+
+        return RenderResult(
+            safe_title=safe_title,
+            output_dir=output_dir,
+            slide1_ref=_to_output_ref(paths[0], self.settings),
+            slide2_ref=_to_output_ref(paths[1], self.settings),
+            slide3_ref=_to_output_ref(paths[2], self.settings),
+        )
+
+    def _render_single_slide(
+        self,
+        title: str,
+        body: str,
+        fox_path: Path,
+        background_path: Path | None,
+        output_path: Path,
+    ) -> None:
+        size = self.settings.image_size
+        canvas = Image.new(
+            "RGBA",
+            (size, size),
+            ImageColor.getrgb(self.settings.default_background_color),
+        )
+        if background_path and background_path.exists():
+            background = Image.open(background_path).convert("RGBA").resize((size, size))
+            canvas.alpha_composite(background)
+
+        draw = ImageDraw.Draw(canvas)
+        badge_font = self._load_font(28)
+        title_font = self._load_font(44)
+        body_font = self._fit_font(draw, body, 820, 86, 42)
+
+        self._draw_badge(draw, size, badge_font)
+        self._draw_title(draw, title, size, title_font)
+        self._draw_body(draw, body, size, body_font)
+        self._draw_fox(canvas, fox_path, size)
+        canvas.save(output_path, format="PNG")
+
+    def _draw_badge(self, draw, size: int, font) -> None:
+        text = "estj_fox"
+        bbox = draw.textbbox((0, 0), text, font=font)
+        width = bbox[2] - bbox[0] + 36
+        height = bbox[3] - bbox[1] + 20
+        x = (size - width) // 2
+        y = 54
+        draw.rounded_rectangle((x, y, x + width, y + height), radius=18, fill="#221814")
+        draw.text((size / 2, y + height / 2), text, font=font, fill="#FFF7EF", anchor="mm")
+
+    def _draw_title(self, draw, title: str, size: int, font) -> None:
+        wrapped = _wrap_text(title, 16)
+        draw.multiline_text(
+            (size / 2, 170),
+            wrapped,
+            font=font,
+            fill="#2B1D19",
+            anchor="ma",
+            align="center",
+            spacing=8,
+        )
+
+    def _draw_body(self, draw, body: str, size: int, font) -> None:
+        body_box = (120, 260, 960, 510)
+        draw.rounded_rectangle(body_box, radius=44, fill="#FFF8F0")
+        wrap_width = max(6, int(820 / max(getattr(font, "size", 24), 24) * 1.7))
+        wrapped = _wrap_text(body, wrap_width)
+        draw.multiline_text(
+            (size / 2, 385),
+            wrapped,
+            font=font,
+            fill="#2B1D19",
+            anchor="mm",
+            align="center",
+            spacing=12,
+        )
+
+    def _draw_fox(self, canvas: Image.Image, fox_path: Path, size: int) -> None:
+        fox = Image.open(fox_path).convert("RGBA")
+        fox.thumbnail((600, 600))
+        x = (size - fox.width) // 2
+        y = size - fox.height - 100
+        canvas.alpha_composite(fox, dest=(x, y))
+
+    def _fit_font(self, draw, text: str, max_width: int, start_size: int, min_size: int):
+        for size in range(start_size, min_size - 1, -4):
+            font = self._load_font(size)
+            wrap_width = max(6, int(max_width / max(size, 24) * 1.7))
+            wrapped = _wrap_text(text, wrap_width)
+            bbox = draw.multiline_textbbox((0, 0), wrapped, font=font, spacing=12, align="center")
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+            if width <= max_width and height <= 190:
+                return font
+        return self._load_font(min_size)
+
+    def _load_font(self, size: int):
+        candidates = [
+            self.settings.font_path,
+            self.settings.fonts_dir / "Pretendard-Bold.ttf",
+            Path("/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
+            Path("/System/Library/Fonts/Supplemental/Apple SD Gothic Neo Bold.ttf"),
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return ImageFont.truetype(str(candidate), size=size)
+        self.logger.warning("폰트 파일이 없어 기본 폰트로 대체합니다.")
+        return ImageFont.load_default()
+
+
+def _safe_slug(value: str) -> str:
+    cleaned = re.sub(r"[^0-9a-zA-Z가-힣]+", "_", value.strip()).strip("_")
+    return cleaned[:60] or "untitled"
+
+
+def _wrap_text(value: str, width: int) -> str:
+    return "\n".join(textwrap.wrap(" ".join(value.split()), width=width, break_long_words=False))
+
+
+def _to_output_ref(path: Path, settings: Settings) -> str:
+    if settings.output_base_url:
+        relative = path.relative_to(settings.output_dir).as_posix()
+        return f"{settings.output_base_url.rstrip('/')}/{relative}"
+    return str(path)

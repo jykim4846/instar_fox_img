@@ -1,19 +1,54 @@
-# estj_fox 콘텐츠 초안 자동 생성기
+# estj_fox 콘텐츠 생성 + 렌더링 파이프라인
 
-한국 트렌드 키워드를 수집하고, 인스타 캐릭터 콘텐츠로 쓸 수 있는 주제만 고른 뒤, 3컷 캐러셀 초안을 생성해서 Notion DB에 `Draft` 상태로 저장하는 MVP입니다.
+한국 트렌드 키워드를 수집하고, 인스타 캐릭터 콘텐츠로 쓸 수 있는 주제만 골라 3컷 캐러셀 문구를 생성합니다. 이후 미리 준비된 여우 PNG 에셋과 배경 PNG를 조합해 1080x1080 PNG 3장을 렌더링하고, 결과를 Notion DB에 `Draft` 상태로 저장합니다.
 
-## 구성 파일
+이 프로그램은 다음까지만 담당합니다.
 
-- `main.py`: 한 번 실행되는 전체 파이프라인 진입점
-- `config.py`: 환경변수 로드와 설정 관리
-- `logger.py`: 콘솔 + 파일 로깅
-- `trend_collector.py`: 한국 트렌드 키워드 수집
-- `topic_filter.py`: 민감 이슈 제외 및 캐릭터용 주제 선별
-- `content_generator.py`: OpenAI Responses API로 JSON 생성
-- `canva_generator.py`: Canva 브랜드 템플릿 자동 채움과 디자인 생성
-- `scorer.py`: 후보 점수 계산과 추천순 정렬용 보조 로직
-- `deduplicator.py`: 최근 14일 Notion 주제와 중복 검사
-- `notion_writer.py`: Notion DB 저장
+- 트렌드 수집
+- 문구 생성
+- PNG 렌더링
+- Notion 저장
+
+이 프로그램은 하지 않습니다.
+
+- Canva 사용
+- 이미지 생성 AI 호출
+- Instagram 업로드
+- 게시 자동화
+
+## 프로젝트 구조
+
+```text
+project/
+├── assets/
+│   ├── fox/
+│   │   ├── annoyed.png
+│   │   ├── arms_crossed.png
+│   │   ├── base_reference.png
+│   │   ├── closeup_face.png
+│   │   ├── judging.png
+│   │   ├── lying_down.png
+│   │   ├── neutral_front.png
+│   │   ├── phone_looking.png
+│   │   ├── pointing.png
+│   │   └── sitting_blank.png
+│   └── backgrounds/
+├── fonts/
+├── output/
+├── asset_mapper.py
+├── config.py
+├── content_generator.py
+├── deduplicator.py
+├── logger.py
+├── main.py
+├── notion_db_template.csv
+├── notion_writer.py
+├── renderer.py
+├── requirements.txt
+├── scorer.py
+├── topic_filter.py
+└── trend_collector.py
+```
 
 ## 설치 방법
 
@@ -25,8 +60,6 @@ pip install -r requirements.txt
 
 ## .env 예시
 
-`.env.example` 을 복사해서 `.env` 로 사용합니다.
-
 ```env
 OPENAI_API_KEY=sk-...
 NOTION_API_KEY=secret_...
@@ -35,14 +68,14 @@ OPENAI_MODEL=gpt-5.4
 MAX_TOPICS_PER_RUN=5
 LOCALE=ko-KR
 TIMEZONE=Asia/Seoul
-CANVA_ENABLED=false
-CANVA_CLIENT_ID=
-CANVA_CLIENT_SECRET=
-CANVA_REFRESH_TOKEN=
-CANVA_TEMPLATE_CONFIG_PATH=canva_templates.json
-CANVA_POLL_INTERVAL_SECONDS=2
-CANVA_POLL_TIMEOUT_SECONDS=90
-CANVA_REFRESH_TOKEN_OUTPUT_PATH=.canva_refresh_token
+OUTPUT_BASE_URL=
+OUTPUT_DIR=./output
+ASSETS_DIR=assets
+FOX_ASSETS_DIR=assets/fox
+BACKGROUND_ASSETS_DIR=assets/backgrounds
+FONTS_DIR=fonts
+FONT_PATH=fonts/Pretendard-Bold.ttf
+IMAGE_SIZE=1080
 ```
 
 ## 실행 방법
@@ -51,196 +84,125 @@ CANVA_REFRESH_TOKEN_OUTPUT_PATH=.canva_refresh_token
 python main.py
 ```
 
-cron 친화적으로 설계되어 있으므로 하루 1회 배치 실행에 바로 붙일 수 있습니다.
-
-예시:
-
-```bash
-0 9 * * * cd /path/to/estj_fox && /usr/bin/python3 main.py
-```
-
-## GitHub Actions 배포
-
-레포에 포함된 워크플로 파일:
+## GitHub Actions
 
 - `.github/workflows/daily_generate.yml`
+- 매일 `UTC 00:00`, 한국 시간 `09:00`
+- 수동 실행 지원
+- 생성 이미지들은 `output/` 아래에 저장되고 workflow artifact 로 업로드됩니다.
 
-동작:
-
-- 매일 `UTC 00:00` 에 실행
-- 한국 시간 기준 `09:00` 에 해당
-- GitHub Actions 화면에서 `Run workflow` 로 수동 실행 가능
-
-필수 GitHub Secrets:
+필수 Secrets:
 
 - `OPENAI_API_KEY`
 - `NOTION_API_KEY`
 - `NOTION_DATABASE_ID`
 
-선택 GitHub Secrets:
+선택 Secrets:
 
 - `OPENAI_MODEL`
 - `MAX_TOPICS_PER_RUN`
 - `LOCALE`
 - `TIMEZONE`
-- `CANVA_ENABLED`
-- `CANVA_CLIENT_ID`
-- `CANVA_CLIENT_SECRET`
-- `CANVA_REFRESH_TOKEN`
-- `CANVA_TEMPLATE_CONFIG_JSON`
-- `CANVA_POLL_INTERVAL_SECONDS`
-- `CANVA_POLL_TIMEOUT_SECONDS`
-- `GITHUB_ACTIONS_ADMIN_TOKEN`
+- `OUTPUT_BASE_URL`
 
-권장 기본값:
-
-- `OPENAI_MODEL=gpt-5.4`
-- `MAX_TOPICS_PER_RUN=5`
-- `LOCALE=ko-KR`
-- `TIMEZONE=Asia/Seoul`
-
-설정 방법:
-
-1. GitHub 레포의 `Settings -> Secrets and variables -> Actions` 로 이동
-2. 위 값을 `New repository secret` 으로 등록
-3. `Actions` 탭에서 `Daily Estj Fox Draft Generation` 워크플로를 수동 실행해 1회 검증
-
-## Canva 연동
-
-Canva 연동은 선택 사항입니다. 설정하지 않으면 기존 Notion 후보 생성만 수행합니다.
-
-전제:
-
-- Canva Connect API 사용 가능 상태
-- 자동 채움 템플릿은 Canva 공식 Autofill API 기준으로 `Brand Template` 이어야 함
-- 공식 문서 기준 Autofill API는 `Canva Enterprise` 사용자 컨텍스트가 필요함
-- Canva OAuth refresh token 은 매 refresh 때 새 값으로 교체되므로, GitHub Actions에서 계속 쓰려면 회전된 토큰을 다시 secret 으로 저장해야 함
-
-필수 GitHub Secrets:
-
-- `CANVA_ENABLED=true`
-- `CANVA_CLIENT_ID`
-- `CANVA_CLIENT_SECRET`
-- `CANVA_REFRESH_TOKEN`
-- `CANVA_TEMPLATE_CONFIG_JSON`
-
-지속 실행 권장 Secrets:
-
-- `GITHUB_ACTIONS_ADMIN_TOKEN`
-
-`GITHUB_ACTIONS_ADMIN_TOKEN` 는 `gh secret set` 으로 새 `CANVA_REFRESH_TOKEN` 을 덮어쓰기 위한 GitHub 토큰입니다. 리포지토리 secrets 쓰기 권한이 필요합니다.
-
-템플릿 설정 예시는 [canva_templates.example.json](/Users/jongyeon.kim/Desktop/instar_fox_img/canva_templates.example.json:1) 에 있습니다.
-
-`CANVA_TEMPLATE_CONFIG_JSON` 예시:
-
-```json
-{
-  "templates": [
-    {
-      "name": "fox-carousel-clean",
-      "brand_template_id": "YOUR_BRAND_TEMPLATE_ID_1",
-      "field_mapping": {
-        "post_title": "title",
-        "cut_1": "cut1",
-        "cut_2": "cut2",
-        "cut_3": "cut3",
-        "caption_text": "caption"
-      }
-    }
-  ]
-}
-```
-
-지원되는 source 값:
-
-- `title`
-- `topic`
-- `category`
-- `cut1`
-- `cut2`
-- `cut3`
-- `caption`
-- `hashtags`
-- `hashtags_text`
-- `ai_score`
-- `recommended`
-- `preview_text`
-- `post_date`
-- `literal:원하는고정문구`
-
-연동 후 동작:
-
-- 각 후보마다 여러 Canva 템플릿으로 디자인 생성 시도
-- 성공한 디자인의 `Edit`, `View` 링크를 해당 Notion 페이지 본문에 기록
-- Canva 실패가 있어도 Notion 후보 저장은 계속 진행
-
-## Notion DB 준비 방법
-
-아래 속성명을 그대로 맞추는 것을 권장합니다.
+## Notion DB 속성 예시
 
 | 속성명 | 타입 | 예시 |
 | --- | --- | --- |
 | `Title` | Title | `필요한 거냐` |
 | `Topic` | Rich text | `무지출 챌린지` |
 | `Category` | Select | `spending` |
+| `TemplateType` | Select | `carousel_3` |
 | `Cut1` | Rich text | `시작은 쉬움` |
 | `Cut2` | Rich text | `결제는 더 쉬움` |
 | `Cut3` | Rich text | `유지가 어렵지` |
-| `Caption` | Rich text | `유행은 빨리 오고 카드값은 천천히 안 온다.` |
+| `Caption` | Rich text | `유행은 빨리 오고 카드값은 늦게 온다.` |
 | `Hashtags` | Rich text | `#절약 #소비 #챌린지` |
+| `Status` | Status | `Draft`, `Approved` |
 | `AIScore` | Number | `87` |
 | `Recommended` | Checkbox | `true` |
-| `Status` | Status | `Draft`, `Approved` |
-| `PreviewText` | Rich text | `시작은 쉬움 | 유지가 어렵지` |
+| `PreviewImage1` | Rich text | `./output/example/slide1.png` |
+| `PreviewImage2` | Rich text | `./output/example/slide2.png` |
+| `PreviewImage3` | Rich text | `./output/example/slide3.png` |
+| `Source` | Rich text | `Google Trends RSS` |
+| `CreatedAt` | Date | `2026-04-13T09:00:00+09:00` |
 | `PostDate` | Date | `2026-04-13` |
 
 중요:
 
-- 이 프로그램은 항상 `Draft` 로만 저장합니다.
-- 실제 업로드는 사람이 검수 후 `Approved` 로 바꾼 항목만 기존 파이프라인이 처리하도록 전제합니다.
-- 점수가 가장 높은 1건만 `Recommended=true` 로 표시합니다.
-- Notion 뷰는 `Recommended` 내림차순, `AIScore` 내림차순, `PostDate` 내림차순으로 정렬해 두는 것을 권장합니다.
+- 새 콘텐츠는 항상 `Draft`
+- 사람이 `Approved` 로 바꾼 것만 기존 게시 프로그램이 처리
+- `PreviewImage1~3` 는 URL 또는 로컬 경로 문자열 저장
 
 ## 동작 흐름
 
 1. `trend_collector.py`
-   - `pytrends` 를 먼저 시도합니다.
-   - 실패하면 Google Trends RSS 를 시도합니다.
-   - 그래도 실패하면 Google Suggest 기반 대체 수집을 시도합니다.
+   - pytrends
+   - Google Trends RSS
+   - Google Suggest fallback
 2. `topic_filter.py`
-   - 정치, 범죄, 재난, 성적/혐오 이슈를 제외합니다.
-   - 자기관리, 소비, 직장, 연애, 습관, 유행, 앱/서비스 문화를 우선 채택합니다.
-   - 중복 대체를 위해 내부적으로는 후보를 넉넉히 본 뒤 최종 저장은 최대 5건만 진행합니다.
+   - 민감 주제 제거
+   - 자기관리, 소비, 직장, 연애, 습관, 밈, 앱/서비스 문화 우선
 3. `deduplicator.py`
-   - 최근 14일간 Notion DB의 `Title`, `Topic` 과 비교해 단순 중복과 유사 중복을 막습니다.
-   - Notion 페이지의 생성 시각 기준으로 최근 14일을 계산합니다.
+   - 최근 14일간 생성된 `Title`, `Topic` 중복/유사 중복 제거
 4. `content_generator.py`
-   - OpenAI Responses API의 Structured Outputs 방식으로 JSON 스키마를 강제합니다.
-   - 실패 시 1회 재시도합니다.
-5. `scorer.py`
-   - 생성된 후보별로 실용성, 간결함, 카테고리 우선순위를 반영해 `AIScore` 를 계산합니다.
-   - 점수 기준으로 후보를 추천순 정렬합니다.
-6. `notion_writer.py`
-   - 생성 결과를 Notion DB에 새 페이지로 저장합니다.
-   - 가장 높은 점수 1건만 `Recommended=true` 로 저장합니다.
-   - 저장 실패 시 로그만 남기고 다음 항목을 계속 처리합니다.
+   - OpenAI Responses API로 JSON 생성
+   - `visuals` 필드까지 포함
+5. `asset_mapper.py`
+   - OpenAI visuals 우선
+   - 없거나 파일이 없으면 category fallback
+6. `renderer.py`
+   - Pillow로 1080x1080 이미지 3장 렌더
+7. `scorer.py`
+   - AIScore 계산
+   - 추천 후보 정렬
+8. `notion_writer.py`
+   - Notion DB에 `Draft` 상태 저장
 
-## 로그
+## 렌더링 규칙
 
-- 콘솔 로그 출력
-- `logs/estj_fox_pipeline.log` 파일 기록
+- 기본 배경색: `#F7F3EA`
+- 텍스트: 상단 중앙
+- 캐릭터: 중앙 하단
+- 여우 PNG 비율 유지
+- 폰트: `fonts/Pretendard-Bold.ttf` 우선
+- 폰트가 없으면 기본 폰트 fallback
+- 배경 PNG가 없으면 단색 배경으로 fallback
 
-## 예외 처리 범위
+## sample JSON 예시
 
-- 트렌드 수집 실패 시 대체 소스 재시도
-- OpenAI 응답 비어 있음 / JSON 파싱 실패 / 검증 실패 시 재시도
-- Notion 저장 실패 시 다음 항목 계속 진행
-- 중복 제거 후 결과가 없으면 정상 종료
-- 생성 성공 후보가 5개보다 적어도 가능한 개수만 저장
+```json
+{
+  "title": "필요한 거냐",
+  "topic": "무지출 챌린지",
+  "category": "spending",
+  "template_type": "carousel_3",
+  "cut1": "시작은 쉬움",
+  "cut2": "결제는 더 쉬움",
+  "cut3": "유지가 어렵지",
+  "caption": "유행은 빨리 오고 카드값은 늦게 온다.",
+  "hashtags": ["#절약", "#소비", "#챌린지"],
+  "visuals": {
+    "background": "shopping.png",
+    "cut1": "phone_looking.png",
+    "cut2": "judging.png",
+    "cut3": "pointing.png"
+  }
+}
+```
 
-## 확장 TODO
+## 예외 처리
 
-- Canva 템플릿 연결
-- 승인 후 Instagram 자동 업로드
-- 주제 랭킹 점수화
+- 트렌드 수집 실패 시 fallback 재시도
+- OpenAI JSON 파싱 실패 시 재시도
+- visuals 파일 누락 시 category fallback
+- 배경 누락 시 단색 배경 fallback
+- 폰트 누락 시 기본 폰트 fallback
+- Notion 저장 실패 시 다음 후보 계속 처리
+
+## TODO
+
+- Approved 상태와 연동한 게시 파이프라인 연결
+- 성과 데이터 기반 주제 점수 개선
+- 배경/에셋 다양화
+- 이미지 업로드 후 public URL 저장

@@ -11,6 +11,7 @@ class RankedCandidate:
     title: str
     topic: str
     category: str
+    template_type: str
     cut1: str
     cut2: str
     cut3: str
@@ -20,6 +21,11 @@ class RankedCandidate:
     recommended: bool
     preview_text: str
     post_date: str
+    preview_image1: str = ""
+    preview_image2: str = ""
+    preview_image3: str = ""
+    source: str = ""
+    created_at: str = ""
 
 
 def score_candidate(content: GeneratedContent, topic: FilteredTopic) -> int:

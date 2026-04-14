@@ -1,6 +1,4 @@
 requests
 python-dotenv
-notion-client
-openai
-pytrends
 Pillow
+cloudinary

@@ -14,7 +14,19 @@ from logger import setup_logger
 from trend_card_renderer import render_trend_card
 from trend_collector import TrendCollector
 
-TREND_HASHTAGS = "#오늘의트렌드 #뉴스 #트렌드 #이슈 #여우리 #daily #trending #korea"
+TREND_HASHTAGS_BASE = "#오늘의트렌드 #뉴스 #트렌드 #이슈 #여우리 #daily #trending #korea"
+
+
+def _build_trend_hashtags(items) -> str:
+    keyword_tags = []
+    for item in items:
+        # 키워드에서 단어 추출 (공백 제거, 특수문자 제거)
+        for word in item.keyword.split():
+            tag = word.strip("[]()「」『』【】《》〈〉·…-—,.:!?\"'")
+            if len(tag) >= 2 and tag not in keyword_tags:
+                keyword_tags.append(tag)
+    extra = " ".join(f"#{t}" for t in keyword_tags[:10])
+    return f"{TREND_HASHTAGS_BASE} {extra}".strip()
 
 load_dotenv()
 
@@ -40,7 +52,7 @@ def run() -> int:
         logger=logger,
         output_dir=output_dir,
     )
-    collection = collector.collect(limit=7)
+    collection = collector.collect(limit=5)
 
     poster = InstagramPoster(logger=logger)
     post_to_ig = bool(os.getenv("IG_USER_ID") and os.getenv("META_ACCESS_TOKEN"))
@@ -67,7 +79,7 @@ def run() -> int:
     # ── 인스타그램 게시 ───────────────────────────
     if post_to_ig:
         if trend_path:
-            trend_caption = f"오늘의 트렌드 📰\n\n{TREND_HASHTAGS}"
+            trend_caption = f"오늘의 트렌드 📰\n\n{_build_trend_hashtags(collection.items)}"
             poster.post(trend_path, caption=trend_caption)
 
         import time; time.sleep(30)  # 두 게시 사이 간격 (Meta 권장)

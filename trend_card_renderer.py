@@ -104,9 +104,9 @@ def _draw_items(draw: ImageDraw.ImageDraw, items: list[TrendItem]) -> None:
     area_top = 148
     area_bottom = CANVAS_H - 80
 
-    number_font = _font(36)
-    keyword_font = _font(32)
-    desc_font = _font(22)
+    number_font = _font(40)
+    keyword_font = _font(36)
+    desc_font = _font(26)
 
     circle_r = 22
     left_x = 80

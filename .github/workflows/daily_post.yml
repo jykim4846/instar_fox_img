@@ -21,8 +21,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install system fonts (CJK 한자 지원)
-        run: sudo apt-get install -y fonts-noto-cjk
+      - name: Install system dependencies (CJK fonts + ffmpeg)
+        run: sudo apt-get install -y fonts-noto-cjk ffmpeg
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt

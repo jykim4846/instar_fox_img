@@ -14,19 +14,70 @@ from logger import setup_logger
 from trend_card_renderer import render_trend_card
 from trend_collector import TrendCollector
 
-TREND_HASHTAGS_BASE = "#오늘의트렌드 #뉴스 #트렌드 #이슈 #여우리 #daily #trending #korea"
+# ── 해시태그 풀 (대형 / 중형 / 니치 3계층) ──────────
+# 대형 (100만+ 게시물) — 짧은 노출, 유입 트리거
+_TAGS_LARGE = [
+    "#MBTI", "#일상", "#공감", "#인스타그램", "#일상스타그램",
+    "#공감스타그램", "#소통", "#daily", "#instadaily",
+]
+# 중형 (1만~100만) — 탐색 탭 노출 핵심
+_TAGS_MEDIUM_ESTJ = [
+    "#ESTJ", "#MBTI유형", "#MBTI공감", "#성격유형", "#MBTI밈",
+    "#MBTI스타그램", "#성격테스트", "#MBTI결과",
+]
+_TAGS_MEDIUM_TREND = [
+    "#트렌드", "#뉴스", "#이슈", "#오늘의뉴스", "#핫이슈",
+    "#실시간뉴스", "#trending", "#korea", "#뉴스스타그램",
+]
+# 니치 (<1만) — 경쟁 적어 상위 노출 용이
+_TAGS_NICHE_ESTJ = [
+    "#ESTJ특징", "#ESTJ일상", "#ESTJ여우", "#여우리",
+    "#MBTI캐릭터", "#계획형인간", "#ESTJ공감", "#ESTJ밈",
+    "#여우리ESTJ", "#MBTI일상",
+]
+_TAGS_NICHE_TREND = [
+    "#여우리", "#오늘의트렌드", "#여우리트렌드",
+    "#MBTI캐릭터", "#뉴스정리", "#트렌드정리",
+]
+
+MAX_TAGS = 25
+
+
+def _merge_tags(*pools: list[str], limit: int = MAX_TAGS) -> list[str]:
+    """여러 태그 풀을 중복 없이 순서대로 합친다."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for pool in pools:
+        for tag in pool:
+            tag_lower = tag.lower()
+            if tag_lower not in seen:
+                seen.add(tag_lower)
+                result.append(tag)
+            if len(result) >= limit:
+                return result
+    return result
 
 
 def _build_trend_hashtags(items) -> str:
     keyword_tags = []
     for item in items:
-        # 키워드에서 단어 추출 (공백 제거, 특수문자 제거)
         for word in item.keyword.split():
             tag = word.strip("[]()「」『』【】《》〈〉·…-—,.:!?\"'")
             if len(tag) >= 2 and tag not in keyword_tags:
                 keyword_tags.append(tag)
-    extra = " ".join(f"#{t}" for t in keyword_tags[:10])
-    return f"{TREND_HASHTAGS_BASE} {extra}".strip()
+    keyword_pool = [f"#{t}" for t in keyword_tags[:10]]
+    tags = _merge_tags(
+        _TAGS_NICHE_TREND, keyword_pool, _TAGS_MEDIUM_TREND, _TAGS_LARGE,
+    )
+    return " ".join(tags)
+
+
+def _build_estj_hashtags(card_hashtags: str) -> str:
+    card_tags = [t.strip() for t in card_hashtags.split() if t.startswith("#")]
+    tags = _merge_tags(
+        card_tags, _TAGS_NICHE_ESTJ, _TAGS_MEDIUM_ESTJ, _TAGS_LARGE,
+    )
+    return " ".join(tags)
 
 load_dotenv()
 
@@ -84,7 +135,8 @@ def run() -> int:
 
         import time; time.sleep(30)  # 두 게시 사이 간격 (Meta 권장)
 
-        estj_caption = f"{estj_card.title}\n\n" + "\n".join(f"• {b}" for b in estj_card.bullets) + f"\n\n{estj_card.hashtags}"
+        estj_hashtags = _build_estj_hashtags(estj_card.hashtags)
+        estj_caption = f"{estj_card.title}\n\n" + "\n".join(f"• {b}" for b in estj_card.bullets) + f"\n\n{estj_hashtags}"
         poster.post(estj_path, caption=estj_caption)
     else:
         logger.info("IG 환경변수 없음 - 인스타 게시 스킵 (로컬 테스트 모드)")

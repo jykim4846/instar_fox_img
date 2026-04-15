@@ -1,5 +1,8 @@
 name: Daily Instagram Post
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 on:
   schedule:
     - cron: '0 0 * * *'  # 매일 오전 9시 KST (= 00:00 UTC)

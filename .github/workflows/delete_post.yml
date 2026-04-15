@@ -1,0 +1,18 @@
+name: Delete post (one-shot)
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete duplicate trend card
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          curl -s -X DELETE \
+            "https://graph.facebook.com/v19.0/18094113727895373?access_token=${META_ACCESS_TOKEN}"

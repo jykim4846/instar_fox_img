@@ -12,23 +12,28 @@ BASE_DIR = Path(__file__).resolve().parent
 FONT_PATH = BASE_DIR / "fonts" / "Pretendard-Bold.otf"
 
 
-def _find_cjk_font() -> Path:
+def _find_cjk_font() -> tuple[Path, int]:
+    """CJK 폰트 경로와 Bold face index를 반환한다."""
     if platform.system() == "Darwin":
         p = Path("/System/Library/Fonts/AppleSDGothicNeo.ttc")
         if p.exists():
-            return p
+            return p, 6  # AppleSDGothicNeo Bold
     # Linux (GitHub Actions: apt install fonts-noto-cjk)
     for candidate in (
         Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
-        Path("/usr/share/fonts/opentype/noto/NotoSansCJKkr-Bold.otf"),
         Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc"),
     ):
         if candidate.exists():
-            return candidate
-    return FONT_PATH  # Pretendard fallback
+            return candidate, 0  # NotoSansCJK-Bold: index 0 = Korean Bold
+    for candidate in (
+        Path("/usr/share/fonts/opentype/noto/NotoSansCJKkr-Bold.otf"),
+    ):
+        if candidate.exists():
+            return candidate, 0  # 단일 face OTF
+    return FONT_PATH, 0  # Pretendard fallback
 
 
-FONT_PATH_CJK = _find_cjk_font()
+FONT_PATH_CJK, _CJK_BOLD_INDEX = _find_cjk_font()
 
 CANVAS_W = 1080
 CANVAS_H = 1080
@@ -175,7 +180,7 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, ma
 
 
 def _font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
-    # AppleSDGothicNeo: index 6=Bold, 0=Regular — 한자 포함 CJK 완전 지원
     if FONT_PATH_CJK.exists():
-        return ImageFont.truetype(str(FONT_PATH_CJK), size, index=6 if bold else 0)
+        idx = _CJK_BOLD_INDEX if bold else 0
+        return ImageFont.truetype(str(FONT_PATH_CJK), size, index=idx)
     return ImageFont.truetype(str(FONT_PATH), size)

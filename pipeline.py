@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from estj_card_renderer import render_estj_card
 from estj_content import get_today
+from estj_reel_renderer import render_estj_reel
 from instagram_poster import InstagramPoster
 from logger import setup_logger
 from trend_card_renderer import render_trend_card
@@ -132,17 +133,30 @@ def run() -> int:
     print(f"         제목: {estj_card.title}")
     print(f"         태그: {estj_card.hashtags}")
 
+    # ── ESTJ 릴스 ────────────────────────────────
+    reel_path = output_dir / "estj_reel.mp4"
+    logger.info("ESTJ 릴스 생성 시작")
+    render_estj_reel(estj_card, reel_path)
+    logger.info("ESTJ 릴스 생성 완료 | %s", reel_path)
+    print(f"[릴스]   {reel_path}")
+
     # ── 인스타그램 게시 ───────────────────────────
+    estj_hashtags = _build_estj_hashtags(estj_card.hashtags)
+    estj_caption = f"{estj_card.title}\n\n" + "\n".join(f"• {b}" for b in estj_card.bullets) + f"\n\n{estj_hashtags}"
+
     if post_to_ig:
+        import time
+
         if trend_path:
             trend_caption = f"오늘의 트렌드 📰\n\n{_build_trend_hashtags(collection.items)}"
             poster.post(trend_path, caption=trend_caption)
+            time.sleep(30)
 
-        import time; time.sleep(30)  # 두 게시 사이 간격 (Meta 권장)
-
-        estj_hashtags = _build_estj_hashtags(estj_card.hashtags)
-        estj_caption = f"{estj_card.title}\n\n" + "\n".join(f"• {b}" for b in estj_card.bullets) + f"\n\n{estj_hashtags}"
         poster.post(estj_path, caption=estj_caption)
+        time.sleep(30)
+
+        reel_caption = f"{estj_card.title} 🦊\n\n{estj_hashtags}"
+        poster.post_reel(reel_path, caption=reel_caption)
     else:
         logger.info("IG 환경변수 없음 - 인스타 게시 스킵 (로컬 테스트 모드)")
 

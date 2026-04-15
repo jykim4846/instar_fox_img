@@ -147,7 +147,7 @@ def _infer_unsplash_query(items: list[TrendItem]) -> str:
     return _DEFAULT_UNSPLASH_QUERY
 
 
-GOOGLE_TRENDS_RSS = "https://trends.google.com/trending/rss?geo=KR"
+GOOGLE_TRENDS_RSS = "https://trends.google.com/trending/rss?geo=KR&hl=ko"
 
 
 def fetch_trending_keywords(limit: int = 3, logger=None) -> list[TrendKeyword]:
@@ -172,6 +172,10 @@ def fetch_trending_keywords(limit: int = 3, logger=None) -> list[TrendKeyword]:
         if not title or title in seen:
             continue
         seen.add(title)
+
+        # 한글이 포함된 키워드만 사용 (글로벌 트렌드 제외)
+        if not re.search(r"[가-힣]", title):
+            continue
 
         traffic_raw = elem.findtext("ht:approx_traffic", "", ns).strip()
         traffic_num = _parse_traffic(traffic_raw)

@@ -40,6 +40,14 @@ class TrendItem:
     description: str
 
 
+@dataclass(frozen=True)
+class TrendKeyword:
+    keyword: str
+    traffic: str       # e.g. "200,000+"
+    traffic_num: int   # e.g. 200000 (정렬용)
+    description: str
+
+
 @dataclass
 class TrendCollection:
     items: list[TrendItem]
@@ -137,6 +145,60 @@ def _infer_unsplash_query(items: list[TrendItem]) -> str:
         if any(kw in combined for kw in keywords):
             return query
     return _DEFAULT_UNSPLASH_QUERY
+
+
+GOOGLE_TRENDS_RSS = "https://trends.google.com/trending/rss?geo=KR"
+
+
+def fetch_trending_keywords(limit: int = 3, logger=None) -> list[TrendKeyword]:
+    """Google Trends daily trending RSS에서 검색수 포함 키워드를 가져온다."""
+    session = requests.Session()
+    session.headers.update({"User-Agent": USER_AGENT})
+    try:
+        resp = session.get(GOOGLE_TRENDS_RSS, timeout=15)
+        resp.raise_for_status()
+    except Exception as e:
+        if logger:
+            logger.warning("Google Trends RSS 수집 실패 | %s", e)
+        return []
+
+    root = ET.fromstring(resp.content)
+    ns = {"ht": "https://trends.google.com/trending/rss"}
+    items: list[TrendKeyword] = []
+    seen: set[str] = set()
+
+    for elem in root.findall(".//item"):
+        title = _clean_html(elem.findtext("title", "")).strip()
+        if not title or title in seen:
+            continue
+        seen.add(title)
+
+        traffic_raw = elem.findtext("ht:approx_traffic", "", ns).strip()
+        traffic_num = _parse_traffic(traffic_raw)
+
+        desc_elem = elem.find("ht:news_item", ns)
+        desc = ""
+        if desc_elem is not None:
+            desc = _clean_html(desc_elem.findtext("ht:news_item_title", "", ns)).strip()
+
+        items.append(TrendKeyword(
+            keyword=title,
+            traffic=traffic_raw or "10,000+",
+            traffic_num=traffic_num,
+            description=desc or "오늘의 트렌드",
+        ))
+
+    items.sort(key=lambda x: x.traffic_num, reverse=True)
+    return items[:limit]
+
+
+def _parse_traffic(raw: str) -> int:
+    """'200,000+' 같은 문자열을 정수로 변환한다."""
+    cleaned = raw.replace(",", "").replace("+", "").strip()
+    try:
+        return int(cleaned)
+    except ValueError:
+        return 0
 
 
 def _clean_html(text: str) -> str:

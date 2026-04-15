@@ -13,7 +13,8 @@ from estj_reel_renderer import render_estj_reel
 from instagram_poster import InstagramPoster
 from logger import setup_logger
 from trend_card_renderer import render_trend_card
-from trend_collector import TrendCollector
+from trend_collector import TrendCollector, fetch_trending_keywords
+from trend_reel_renderer import render_trend_reel
 
 # ── 해시태그 풀 (대형 / 중형 / 니치 3계층) ──────────
 # 대형 (100만+ 게시물) — 짧은 노출, 유입 트리거
@@ -134,11 +135,25 @@ def run() -> int:
     print(f"         태그: {estj_card.hashtags}")
 
     # ── ESTJ 릴스 ────────────────────────────────
-    reel_path = output_dir / "estj_reel.mp4"
+    estj_reel_path = output_dir / "estj_reel.mp4"
     logger.info("ESTJ 릴스 생성 시작")
-    render_estj_reel(estj_card, reel_path)
-    logger.info("ESTJ 릴스 생성 완료 | %s", reel_path)
-    print(f"[릴스]   {reel_path}")
+    render_estj_reel(estj_card, estj_reel_path)
+    logger.info("ESTJ 릴스 생성 완료 | %s", estj_reel_path)
+    print(f"[ESTJ릴스] {estj_reel_path}")
+
+    # ── 트렌드 릴스 ──────────────────────────────
+    logger.info("트렌드 키워드 수집 시작 (Google Trends)")
+    trend_keywords = fetch_trending_keywords(limit=3, logger=logger)
+    trend_reel_path = None
+    if len(trend_keywords) >= 3:
+        trend_reel_path = output_dir / "trend_reel.mp4"
+        render_trend_reel(trend_keywords, trend_reel_path)
+        logger.info("트렌드 릴스 생성 완료 | %s", trend_reel_path)
+        print(f"[트렌드릴스] {trend_reel_path}")
+        for i, kw in enumerate(trend_keywords):
+            print(f"  {i+1}위: {kw.keyword} ({kw.traffic})")
+    else:
+        logger.warning("트렌드 키워드 부족 (%s개) - 트렌드 릴스 스킵", len(trend_keywords))
 
     # ── 인스타그램 게시 ───────────────────────────
     estj_hashtags = _build_estj_hashtags(estj_card.hashtags)
@@ -155,8 +170,13 @@ def run() -> int:
         poster.post(estj_path, caption=estj_caption)
         time.sleep(30)
 
-        reel_caption = f"{estj_card.title} 🦊\n\n{estj_hashtags}"
-        poster.post_reel(reel_path, caption=reel_caption)
+        estj_reel_caption = f"{estj_card.title} 🦊\n\n{estj_hashtags}"
+        poster.post_reel(estj_reel_path, caption=estj_reel_caption)
+        time.sleep(30)
+
+        if trend_reel_path:
+            trend_reel_caption = f"오늘의 관심 키워드 TOP 3 🔥\n\n{_build_trend_hashtags(collection.items)}"
+            poster.post_reel(trend_reel_path, caption=trend_reel_caption)
     else:
         logger.info("IG 환경변수 없음 - 인스타 게시 스킵 (로컬 테스트 모드)")
 

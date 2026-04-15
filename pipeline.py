@@ -19,28 +19,33 @@ from trend_collector import TrendCollector
 _TAGS_LARGE = [
     "#MBTI", "#일상", "#공감", "#인스타그램", "#일상스타그램",
     "#공감스타그램", "#소통", "#daily", "#instadaily",
+    "#인스타", "#좋아요", "#팔로우", "#소통해요", "#맞팔",
 ]
 # 중형 (1만~100만) — 탐색 탭 노출 핵심
 _TAGS_MEDIUM_ESTJ = [
     "#ESTJ", "#MBTI유형", "#MBTI공감", "#성격유형", "#MBTI밈",
-    "#MBTI스타그램", "#성격테스트", "#MBTI결과",
+    "#MBTI스타그램", "#성격테스트", "#MBTI결과", "#MBTI테스트",
+    "#성격분석", "#MBTI분석", "#갓생", "#자기계발", "#mbtitest",
 ]
 _TAGS_MEDIUM_TREND = [
     "#트렌드", "#뉴스", "#이슈", "#오늘의뉴스", "#핫이슈",
     "#실시간뉴스", "#trending", "#korea", "#뉴스스타그램",
+    "#시사", "#정보", "#뉴스정리", "#오늘뉴스", "#koreanews",
 ]
 # 니치 (<1만) — 경쟁 적어 상위 노출 용이
 _TAGS_NICHE_ESTJ = [
     "#ESTJ특징", "#ESTJ일상", "#ESTJ여우", "#여우리",
     "#MBTI캐릭터", "#계획형인간", "#ESTJ공감", "#ESTJ밈",
-    "#여우리ESTJ", "#MBTI일상",
+    "#여우리ESTJ", "#MBTI일상", "#ESTJ짤", "#ESTJ카드",
+    "#ESTJ유형", "#MBTI짤", "#ESTJ공감짤", "#MBTI카드",
 ]
 _TAGS_NICHE_TREND = [
     "#여우리", "#오늘의트렌드", "#여우리트렌드",
-    "#MBTI캐릭터", "#뉴스정리", "#트렌드정리",
+    "#MBTI캐릭터", "#트렌드정리", "#뉴스카드",
+    "#오늘의이슈", "#트렌드카드", "#데일리뉴스", "#여우리뉴스",
 ]
 
-MAX_TAGS = 25
+MAX_TAGS = 30
 
 
 def _merge_tags(*pools: list[str], limit: int = MAX_TAGS) -> list[str]:

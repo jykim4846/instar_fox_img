@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import platform
 import subprocess
 import tempfile
 from collections import deque
@@ -32,32 +31,8 @@ PROGRESS_FG = (255, 107, 53)
 WATERMARK_COLOR = (180, 165, 145)
 
 
-def _find_font() -> tuple[Path, int]:
-    if platform.system() == "Darwin":
-        p = Path("/System/Library/Fonts/AppleSDGothicNeo.ttc")
-        if p.exists():
-            return p, 6
-    for candidate in (
-        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
-        Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc"),
-    ):
-        if candidate.exists():
-            return candidate, 0
-    for candidate in (
-        Path("/usr/share/fonts/opentype/noto/NotoSansCJKkr-Bold.otf"),
-    ):
-        if candidate.exists():
-            return candidate, 0
-    return FONT_PATH, 0
-
-
-_FONT_FILE, _FONT_INDEX = _find_font()
-
-
 def _font(size: int) -> ImageFont.FreeTypeFont:
-    if _FONT_FILE.suffix.lower() == ".ttc":
-        return ImageFont.truetype(str(_FONT_FILE), size, index=_FONT_INDEX)
-    return ImageFont.truetype(str(_FONT_FILE), size)
+    return ImageFont.truetype(str(FONT_PATH), size)
 
 
 def _wrap(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:

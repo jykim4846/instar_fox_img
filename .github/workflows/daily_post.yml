@@ -5,7 +5,7 @@ env:
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 매일 오후 9시 KST (= 12:00 UTC)
+    - cron: '2 13 * * *'  # 매일 오후 10시 2분 KST (= 13:02 UTC)
   workflow_dispatch:       # 수동 실행도 가능
 
 jobs:

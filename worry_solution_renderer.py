@@ -11,7 +11,6 @@ from manual_worry_solution import ManualWorrySolution
 
 if TYPE_CHECKING:
     from config import Settings
-    from worry_solution_generator import WorrySolutionContent
 
 BASE_DIR = Path(__file__).resolve().parent
 FOX_DIR = BASE_DIR / "assets" / "fox"

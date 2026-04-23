@@ -98,21 +98,19 @@
   - `Approved`
   - `Posted`
 
-### 2. 구형 자동 생성 파일 정리 여부
+### 2. 구형 자동 생성 파일 정리 (완료)
 
-아래 파일은 이전 자동 생성 경로의 흔적이 남아 있습니다.
+이전 자동 생성 경로 파일은 `legacy/` 로 이동했습니다. 상세 목록과 보관 사유는 [legacy/README.md](legacy/README.md) 참고.
 
-- `content_generator.py`
-- `renderer.py`
-- `asset_mapper.py`
-- `scorer.py`
-- `trend_collector.py`
+이동 대상:
 
-현재 운영 메인 경로는 아니므로:
+- OpenAI 자동 카피: `content_generator.py`, `worry_solution_generator.py`, `scorer.py`
+- 6컷 웹툰: `renderer.py`, `webtoon_composer.py`, `sample_6panel.json`
+- 자동 비주얼: `asset_mapper.py`, `pollinations_generator.py`
+- 정적 카드 (릴스로 대체): `estj_card_renderer.py`, `trend_card_renderer.py`
+- 기타: `daily_issue.py`, `daily_worry_solution.py`, `deduplicator.py`
 
-- 완전히 제거하거나
-- `legacy/`로 옮기거나
-- 실험용으로만 남긴다는 문서화가 필요합니다.
+`trend_collector.py` 는 현재 `pipeline.py` 에서 트렌드 릴스용으로 **계속 사용 중** 이라 루트에 남겼습니다.
 
 ### 3. Notion 기반 수동 작성 UX 미완성
 

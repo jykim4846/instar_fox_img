@@ -7,6 +7,7 @@ from pathlib import Path
 from config import Settings
 from content_generator import GeneratedContent
 from topic_filter import Category
+from pollinations_generator import generate_background
 
 
 VISUAL_RULES: dict[Category, dict[str, str]] = {
@@ -84,6 +85,7 @@ def resolve_visuals(
         fallback_name=fallback["background"],
         settings=settings,
         logger=logger,
+        category=content.category,
     )
 
     cut_paths: list[Path] = []
@@ -109,6 +111,7 @@ def _resolve_background(
     fallback_name: str,
     settings: Settings,
     logger: logging.Logger,
+    category: str = "default",
 ) -> Path | None:
     for filename in (requested_name, fallback_name):
         if not filename:
@@ -117,7 +120,10 @@ def _resolve_background(
         if path.exists():
             return path
         logger.warning("배경 파일 없음 | %s", path)
-    return None
+
+    # 정적 에셋 없으면 Pollinations.ai로 자동 생성
+    generated_path = settings.background_assets_dir / f"generated_{category}.png"
+    return generate_background(category=category, save_path=generated_path)
 
 
 def _resolve_fox_asset(

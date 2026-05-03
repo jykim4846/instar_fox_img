@@ -172,6 +172,25 @@ GitHub Actions:
 - `carousel_content.json`: 최종 원고와 캡션
 - `slide_01.png` ~ `slide_07.png`: 게시 이미지
 
+## 자동 ESTJ 릴스 게시
+
+`pipeline.py`는 기존처럼 정적 ESTJ 라이브러리에서 날짜별 콘텐츠를 고르는 대신, `daily_trend_ranker.py`의 오늘 1위 트렌드를 ESTJ 관점으로 바꿔 릴스를 만듭니다.
+
+동작 방식:
+
+- `daily_trend_ranker.py`로 오늘의 1위 트렌드 선정
+- `OPENAI_API_KEY`가 있으면 `gpt-5.4-mini`가 ESTJ식 제목과 4개 bullet 작성
+- OpenAI 호출이 실패하거나 키가 없으면 카테고리별 ESTJ 템플릿으로 fallback
+- 트렌드 후보 수집 자체가 실패하면 기존 `estj_content.py` 정적 라이브러리로 fallback
+- `estj_reel_renderer.py`가 15초 MP4 렌더
+- `instagram_poster.py`가 릴스로 게시
+
+GitHub Actions:
+
+- `.github/workflows/daily_post.yml`
+- 매일 11:37 UTC, 20:37 KST 자동 실행
+- 이제 트렌드 릴스는 자동 생성/게시하지 않고 ESTJ 릴스 1개만 게시
+
 ## 현재 기준
 
 이 레포에서 신뢰해야 하는 기본 운영 명령은 다음 네 개입니다.

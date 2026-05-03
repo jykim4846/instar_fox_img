@@ -135,7 +135,7 @@ IMAGE_SIZE=1080
 
 ## 자동 카드뉴스 게시
 
-`daily_carousel_pipeline.py`는 매일 최신 트렌드 후보를 수집하고, 규칙 기반 점수 모델로 1위를 고른 뒤 7장 캐러셀을 렌더하고 Instagram에 게시합니다.
+`daily_content_pipeline.py`는 매일 최신 트렌드 후보를 한 번만 수집하고, 규칙 기반 점수 모델로 1위를 고른 뒤 같은 주제로 ESTJ 릴스와 7장 캐러셀을 렌더하고 Instagram에 게시합니다.
 
 선정은 항상 규칙 기반 점수 모델이 맡습니다. 1위가 정해진 뒤에는 `OPENAI_API_KEY`가 있으면 `gpt-5.4-mini`로 훅, 7장 원고, 캡션을 생성합니다. OpenAI 호출이 실패하거나 키가 없으면 기존 템플릿 작성기로 자동 fallback합니다.
 
@@ -151,30 +151,31 @@ IMAGE_SIZE=1080
 로컬 검증:
 
 ```bash
-python daily_carousel_pipeline.py --dry-run
+python daily_content_pipeline.py --dry-run
 ```
 
 실제 게시:
 
 ```bash
-python daily_carousel_pipeline.py
+python daily_content_pipeline.py
 ```
 
 GitHub Actions:
 
-- `.github/workflows/post_ai_trend_carousel.yml`
-- 매일 12:07 UTC, 21:07 KST 자동 실행
+- `.github/workflows/daily_content.yml`
+- 매일 11:37 UTC, 20:37 KST 자동 실행
 - `workflow_dispatch`로 수동 실행 가능
 
-실행 결과는 `output/daily_carousel/<date>/` 아래에 저장됩니다.
+실행 결과는 `output/<date>/` 아래에 저장됩니다.
 
 - `ranking.json`: 후보 랭킹과 점수
-- `carousel_content.json`: 최종 원고와 캡션
-- `slide_01.png` ~ `slide_07.png`: 게시 이미지
+- `estj_reel.mp4`: ESTJ 릴스
+- `carousel/carousel_content.json`: 최종 카드뉴스 원고와 캡션
+- `carousel/slide_01.png` ~ `carousel/slide_07.png`: 게시 이미지
 
 ## 자동 ESTJ 릴스 게시
 
-`pipeline.py`는 기존처럼 정적 ESTJ 라이브러리에서 날짜별 콘텐츠를 고르는 대신, `daily_trend_ranker.py`의 오늘 1위 트렌드를 ESTJ 관점으로 바꿔 릴스를 만듭니다.
+`pipeline.py`는 수동/개별 실행용 ESTJ 릴스 경로입니다. 통합 자동 게시에서는 `daily_content_pipeline.py`가 같은 렌더 함수를 호출합니다.
 
 동작 방식:
 
@@ -188,8 +189,10 @@ GitHub Actions:
 GitHub Actions:
 
 - `.github/workflows/daily_post.yml`
-- 매일 11:37 UTC, 20:37 KST 자동 실행
-- 이제 트렌드 릴스는 자동 생성/게시하지 않고 ESTJ 릴스 1개만 게시
+- 수동 실행 전용
+- 트렌드 릴스는 자동 생성/게시하지 않고 ESTJ 릴스 1개만 게시
+
+참고: `.github/workflows/post_ai_trend_carousel.yml`도 수동 실행 전용입니다. 매일 자동 게시의 기준은 `.github/workflows/daily_content.yml` 하나입니다.
 
 ## 현재 기준
 

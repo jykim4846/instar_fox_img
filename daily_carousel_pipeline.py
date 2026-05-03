@@ -9,8 +9,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from carousel_ai_trend_renderer import render_slides
+from daily_carousel_writer import DailyCarouselContent
 from daily_carousel_writer import build_carousel_content, build_openai_carousel_content, save_content
-from daily_trend_ranker import collect_ranked_trends, save_ranking
+from daily_trend_ranker import RankedTrend, collect_ranked_trends, save_ranking
 from logger import setup_logger
 
 
@@ -38,10 +39,7 @@ def run(*, dry_run: bool = False) -> int:
     winner = ranked[0]
     logger.info("오늘의 캐러셀 주제 선정 | %s | score=%s", winner.keyword, winner.final_score)
 
-    content = build_openai_carousel_content(winner, ranked, logger) or build_carousel_content(winner)
-    save_content(content, output_dir)
-    image_paths = render_slides(content.slides, output_dir)
-    logger.info("캐러셀 렌더 완료 | %s장 | %s", len(image_paths), output_dir)
+    content, image_paths = render_daily_carousel(winner, ranked, output_dir, logger)
 
     if dry_run:
         print(output_dir)
@@ -59,6 +57,19 @@ def run(*, dry_run: bool = False) -> int:
 
     poster = InstagramPoster(logger=logger)
     return 0 if poster.post_carousel(image_paths, content.caption) else 1
+
+
+def render_daily_carousel(
+    winner: RankedTrend,
+    ranked: list[RankedTrend],
+    output_dir: Path,
+    logger,
+) -> tuple[DailyCarouselContent, list[Path]]:
+    content = build_openai_carousel_content(winner, ranked, logger) or build_carousel_content(winner)
+    save_content(content, output_dir)
+    image_paths = render_slides(content.slides, output_dir)
+    logger.info("캐러셀 렌더 완료 | %s장 | %s", len(image_paths), output_dir)
+    return content, image_paths
 
 
 def _parse_args() -> argparse.Namespace:

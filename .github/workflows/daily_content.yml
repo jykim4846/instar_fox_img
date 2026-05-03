@@ -1,9 +1,11 @@
-name: Post AI Trend Carousel
+name: Daily Content
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 on:
+  schedule:
+    - cron: "37 11 * * *" # 매일 오후 8시 37분 KST (= 11:37 UTC)
   workflow_dispatch:
 
 jobs:
@@ -19,10 +21,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system dependencies (CJK fonts + ffmpeg)
+        run: sudo apt-get install -y fonts-noto-cjk ffmpeg
+
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Rank trend, render carousel, and post
+      - name: Rank one topic, render, and post daily content
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
@@ -31,4 +36,4 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-5.4-mini
-        run: python3 daily_carousel_pipeline.py
+        run: python3 daily_content_pipeline.py

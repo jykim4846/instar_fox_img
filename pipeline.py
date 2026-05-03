@@ -8,7 +8,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from daily_estj_reel_writer import build_estj_reel_card
-from daily_trend_ranker import collect_ranked_trends, save_ranking
+from daily_trend_ranker import RankedTrend, collect_ranked_trends, save_ranking
+from estj_content import ESTJCard
 from estj_reel_renderer import render_estj_reel
 from logger import setup_logger
 
@@ -78,10 +79,7 @@ def run() -> int:
     if ranked:
         save_ranking(ranked, output_dir)
         logger.info("ESTJ 릴스 주제 선정 | %s | score=%s", winner.keyword, winner.final_score)
-    estj_card = build_estj_reel_card(winner, ranked, logger)
-    estj_reel_path = output_dir / "estj_reel.mp4"
-    render_estj_reel(estj_card, estj_reel_path)
-    logger.info("ESTJ 릴스 생성 완료 | %s | %s", estj_card.title, estj_reel_path)
+    estj_card, estj_reel_path = render_daily_estj_reel(winner, ranked, output_dir, logger)
     print(f"[ESTJ릴스] {estj_reel_path}")
     print(f"           제목: {estj_card.title}")
 
@@ -98,6 +96,19 @@ def run() -> int:
         logger.info("IG 환경변수 없음 - 인스타 게시 스킵 (로컬 테스트 모드)")
 
     return 0
+
+
+def render_daily_estj_reel(
+    winner: RankedTrend | None,
+    ranked: list[RankedTrend],
+    output_dir: Path,
+    logger,
+) -> tuple[ESTJCard, Path]:
+    estj_card = build_estj_reel_card(winner, ranked, logger)
+    estj_reel_path = output_dir / "estj_reel.mp4"
+    render_estj_reel(estj_card, estj_reel_path)
+    logger.info("ESTJ 릴스 생성 완료 | %s | %s", estj_card.title, estj_reel_path)
+    return estj_card, estj_reel_path
 
 
 if __name__ == "__main__":

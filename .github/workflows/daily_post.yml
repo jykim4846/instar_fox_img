@@ -4,8 +4,6 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 on:
-  schedule:
-    - cron: '37 11 * * *'  # 매일 오후 8시 37분 KST (= 11:37 UTC)
   workflow_dispatch:       # 수동 실행도 가능
 
 jobs:

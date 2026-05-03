@@ -36,6 +36,10 @@ REQUIRED_ENV = (
 
 
 def run() -> int:
+    """Post the fixed sample carousel.
+
+    The daily automated workflow uses daily_carousel_pipeline.py instead.
+    """
     load_dotenv()
     logger = setup_logger(Path("logs") / "ai_trend_carousel.log")
 

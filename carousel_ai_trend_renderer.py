@@ -21,7 +21,7 @@ class CarouselSlide:
     inverted: bool = False
 
 
-SLIDES = [
+SAMPLE_SLIDES = [
     CarouselSlide(
         eyebrow="AI TREND",
         title="AI 안 쓰는 사람이\n더 이상 신중한 사람이\n아닐 수 있다",
@@ -87,10 +87,14 @@ SLIDES = [
 
 
 def render_carousel(output_dir: Path = OUTPUT_DIR) -> list[Path]:
+    return render_slides(SAMPLE_SLIDES, output_dir)
+
+
+def render_slides(slides: list[CarouselSlide], output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
-    for index, slide in enumerate(SLIDES, start=1):
-        image = _render_slide(slide, index, len(SLIDES))
+    for index, slide in enumerate(slides, start=1):
+        image = _render_slide(slide, index, len(slides))
         path = output_dir / f"slide_{index:02d}.png"
         image.save(path, format="PNG")
         paths.append(path)

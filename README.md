@@ -133,6 +133,43 @@ IMAGE_SIZE=1080
 - `legacy/`: OpenAI 자동 카피, 6컷 웹툰, 구 카드 렌더러 등 보관 코드
 - `.github/workflows/daily_post.yml`: 아직 `pipeline.py`를 실행하는 구 GitHub Actions 워크플로우입니다. 현재 운영 방식으로 자동화하려면 별도 수정이 필요합니다.
 
+## 자동 카드뉴스 게시
+
+`daily_carousel_pipeline.py`는 매일 최신 트렌드 후보를 수집하고, 규칙 기반 점수 모델로 1위를 고른 뒤 7장 캐러셀을 렌더하고 Instagram에 게시합니다.
+
+점수 기준:
+
+- 트렌드 강도
+- 계정 타깃 적합도
+- 자극적인 훅으로 바꿀 수 있는 정도
+- 하루 지나도 의미가 남는 정도
+- 출처 다양성
+- 민감 이슈/팩트 리스크/브랜드 불일치 감점
+
+로컬 검증:
+
+```bash
+python daily_carousel_pipeline.py --dry-run
+```
+
+실제 게시:
+
+```bash
+python daily_carousel_pipeline.py
+```
+
+GitHub Actions:
+
+- `.github/workflows/post_ai_trend_carousel.yml`
+- 매일 12:07 UTC, 21:07 KST 자동 실행
+- `workflow_dispatch`로 수동 실행 가능
+
+실행 결과는 `output/daily_carousel/<date>/` 아래에 저장됩니다.
+
+- `ranking.json`: 후보 랭킹과 점수
+- `carousel_content.json`: 최종 원고와 캡션
+- `slide_01.png` ~ `slide_07.png`: 게시 이미지
+
 ## 현재 기준
 
 이 레포에서 신뢰해야 하는 기본 운영 명령은 다음 네 개입니다.

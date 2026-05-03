@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
-from trend_collector import TrendCandidate
+
+class TrendCandidate(Protocol):
+    keyword: str
+    source: str
 
 
 Category = Literal["selfcare", "work", "dating", "spending", "trend", "lifestyle"]

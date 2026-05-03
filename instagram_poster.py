@@ -34,6 +34,18 @@ class InstagramPoster:
             self.logger.error("인스타그램 게시 실패 | %s | %s", image_path.name, e)
             return False
 
+    def post_carousel(self, image_paths: list[Path], caption: str) -> bool:
+        try:
+            public_urls = [self._upload_to_cloudinary(path) for path in image_paths]
+            item_ids = [self._create_carousel_item_container(url) for url in public_urls]
+            creation_id = self._create_carousel_container(item_ids, caption)
+            self._publish(creation_id)
+            self.logger.info("캐러셀 게시 성공 | %s장", len(image_paths))
+            return True
+        except Exception as e:
+            self.logger.error("캐러셀 게시 실패 | %s", e)
+            return False
+
     def post_reel(self, video_path: Path, caption: str) -> bool:
         try:
             public_url = self._upload_to_cloudinary(video_path, resource_type="video")
@@ -72,6 +84,41 @@ class InstagramPoster:
         resp.raise_for_status()
         creation_id = resp.json()["id"]
         self.logger.info("미디어 컨테이너 생성 | id=%s", creation_id)
+        return creation_id
+
+    def _create_carousel_item_container(self, image_url: str) -> str:
+        resp = requests.post(
+            f"{self.GRAPH_URL}/{self.ig_user_id}/media",
+            data={
+                "image_url": image_url,
+                "is_carousel_item": "true",
+                "access_token": self.access_token,
+            },
+            timeout=30,
+        )
+        if not resp.ok:
+            self.logger.error("Meta Carousel Item API 응답 | %s | %s", resp.status_code, resp.text)
+        resp.raise_for_status()
+        creation_id = resp.json()["id"]
+        self.logger.info("캐러셀 아이템 컨테이너 생성 | id=%s", creation_id)
+        return creation_id
+
+    def _create_carousel_container(self, item_ids: list[str], caption: str) -> str:
+        resp = requests.post(
+            f"{self.GRAPH_URL}/{self.ig_user_id}/media",
+            data={
+                "media_type": "CAROUSEL",
+                "children": ",".join(item_ids),
+                "caption": caption,
+                "access_token": self.access_token,
+            },
+            timeout=30,
+        )
+        if not resp.ok:
+            self.logger.error("Meta Carousel API 응답 | %s | %s", resp.status_code, resp.text)
+        resp.raise_for_status()
+        creation_id = resp.json()["id"]
+        self.logger.info("캐러셀 컨테이너 생성 | id=%s", creation_id)
         return creation_id
 
     def _create_reel_container(self, video_url: str, caption: str) -> str:

@@ -62,5 +62,6 @@ main.py              → Collected 상태로 저장
 (Notion 에서 WriterAnswer 작성)
 render_answered_notion_pages.py  → Answered → Rendered 로 전이, 2장 카드 생성
 (검수자가 수동으로 Status=Approved)
-pipeline.py          → 릴스 생성 + Instagram 게시
 ```
+
+참고: `pipeline.py`는 릴스 생성과 Instagram 게시까지 포함한 구 운영 경로이며, 현재 Notion 기반 고민 카드 운영 흐름에는 포함하지 않는다.

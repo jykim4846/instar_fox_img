@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass
+from typing import Any
 from pathlib import Path
 
 from carousel_ai_trend_renderer import CarouselSlide
@@ -18,6 +20,51 @@ class DailyCarouselContent:
     slides: list[CarouselSlide]
     caption: str
     hashtags: list[str]
+
+
+CAROUSEL_SCHEMA: dict[str, Any] = {
+    "type": "json_schema",
+    "name": "daily_carousel_content",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "hook": {"type": "string"},
+            "angle": {"type": "string"},
+            "slides": {
+                "type": "array",
+                "minItems": 7,
+                "maxItems": 7,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "eyebrow": {"type": "string"},
+                        "title": {"type": "string"},
+                        "body": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 4,
+                            "items": {"type": "string"},
+                        },
+                        "footer": {"type": "string"},
+                        "inverted": {"type": "boolean"},
+                    },
+                    "required": ["eyebrow", "title", "body", "footer", "inverted"],
+                    "additionalProperties": False,
+                },
+            },
+            "caption": {"type": "string"},
+            "hashtags": {
+                "type": "array",
+                "minItems": 6,
+                "maxItems": 12,
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["hook", "angle", "slides", "caption", "hashtags"],
+        "additionalProperties": False,
+    },
+}
 
 
 def build_carousel_content(winner: RankedTrend) -> DailyCarouselContent:
@@ -83,12 +130,175 @@ def build_carousel_content(winner: RankedTrend) -> DailyCarouselContent:
     )
 
 
+def build_openai_carousel_content(
+    winner: RankedTrend,
+    ranked: list[RankedTrend],
+    logger,
+) -> DailyCarouselContent | None:
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        logger.info("OPENAI_API_KEY 없음 - 템플릿 작성기로 fallback")
+        return None
+
+    try:
+        from openai import OpenAI
+    except ImportError as error:
+        logger.warning("openai 패키지 없음 - 템플릿 작성기로 fallback | %s", error)
+        return None
+
+    model = os.getenv("OPENAI_MODEL", "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+    client = OpenAI(api_key=api_key)
+    try:
+        response = client.responses.create(
+            model=model,
+            input=[
+                {"role": "system", "content": _openai_system_prompt()},
+                {"role": "user", "content": _openai_user_prompt(winner, ranked)},
+            ],
+            text={"format": CAROUSEL_SCHEMA},
+            max_output_tokens=1800,
+        )
+        payload = json.loads((response.output_text or "").strip())
+        content = _content_from_openai_payload(winner, payload)
+        logger.info("OpenAI 캐러셀 원고 생성 성공 | model=%s | topic=%s", model, winner.keyword)
+        return content
+    except Exception as error:  # noqa: BLE001
+        logger.warning("OpenAI 캐러셀 원고 생성 실패 - 템플릿 작성기로 fallback | %s", error)
+        return None
+
+
 def save_content(content: DailyCarouselContent, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / "carousel_content.json"
     payload = asdict(content)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
+
+
+def _content_from_openai_payload(winner: RankedTrend, payload: dict[str, Any]) -> DailyCarouselContent:
+    slides = [
+        CarouselSlide(
+            eyebrow=_clean_text(str(item["eyebrow"]))[:24],
+            title=_normalize_title(str(item["title"])),
+            body=[_clean_text(str(line))[:100] for line in item["body"][:4]],
+            footer=_clean_text(str(item.get("footer", "")))[:42],
+            inverted=bool(item["inverted"]),
+        )
+        for item in payload["slides"]
+    ]
+    if len(slides) != 7:
+        raise ValueError("slides 는 정확히 7장이어야 합니다.")
+    if not any(slide.inverted for slide in slides):
+        slides[4] = CarouselSlide(
+            eyebrow=slides[4].eyebrow,
+            title=slides[4].title,
+            body=slides[4].body,
+            footer=slides[4].footer,
+            inverted=True,
+        )
+    hashtags = [_format_hashtag(str(tag)) for tag in payload["hashtags"][:12]]
+    hashtags = [tag for tag in hashtags if tag != "#"]
+    if len(hashtags) < 5:
+        hashtags = _hashtags(_infer_category(winner))
+    return DailyCarouselContent(
+        keyword=winner.keyword,
+        hook=_clean_text(str(payload["hook"]))[:80],
+        angle=_clean_text(str(payload["angle"]))[:180],
+        source=winner.source,
+        score=winner.final_score,
+        slides=slides,
+        caption=_clean_caption(str(payload["caption"]), hashtags),
+        hashtags=hashtags,
+    )
+
+
+def _openai_system_prompt() -> str:
+    return """
+너는 인스타그램 카드뉴스 계정의 한국어 에디터다.
+매일 최신 트렌드 1개를 7장 캐러셀로 바꾼다.
+목표는 클릭bait가 아니라 저장하고 싶은 찔림이다.
+
+원칙:
+- 정치, 범죄, 재난, 사망, 질병, 투자 조언, 혐오, 성적 소재로 확장하지 않는다.
+- 후보 데이터에 없는 구체 수치나 사실을 새로 만들지 않는다.
+- 자극적인 문장은 쓰되 허위 단정, 공포 조장, 특정 집단 비난은 금지한다.
+- 문장은 짧고 강하게 쓴다.
+- 각 슬라이드 title은 32자 이내, 줄바꿈 포함 최대 4줄.
+- 각 body 문장은 70자 이내.
+- 5번 슬라이드는 반전/경고 카드로 inverted=true.
+- 출력은 JSON만 한다.
+
+7장 구조:
+1 표지: 가장 강한 훅
+2 왜 지금 보이는지
+3 트렌드 신호
+4 핵심 관점
+5 반전/경고
+6 저장할 체크리스트
+7 오늘의 기준과 저장 유도
+""".strip()
+
+
+def _openai_user_prompt(winner: RankedTrend, ranked: list[RankedTrend]) -> str:
+    ranking_lines = []
+    for index, item in enumerate(ranked[:8], start=1):
+        ranking_lines.append(
+            f"{index}. {item.keyword} | score={item.final_score} | source={item.source} | "
+            f"hook={item.hook} | angle={item.angle} | signals={'; '.join(item.signals[:3])}"
+        )
+    return f"""
+선정된 1위 주제:
+- keyword: {winner.keyword}
+- score: {winner.final_score}
+- source: {winner.source}
+- description: {winner.description}
+- signals: {'; '.join(winner.signals[:5])}
+- baseline_hook: {winner.hook}
+- baseline_angle: {winner.angle}
+
+후보 랭킹 참고:
+{chr(10).join(ranking_lines)}
+
+브랜드 톤:
+- 귀여운 여우 캐릭터 계정이지만 문장은 현실적이고 단정적이다.
+- 위로보다 판단 기준을 준다.
+- 독자가 "이거 저장해야겠다"라고 느끼는 체크리스트를 선호한다.
+
+JSON 필드:
+- hook: 표지에 쓸 핵심 훅
+- angle: 캡션과 기록에 남길 한 문장 관점
+- slides: 정확히 7개
+- caption: 인스타 게시 캡션. 5~8줄 + 질문 1개 + 해시태그 문자열 포함
+- hashtags: #으로 시작하는 한국어/영어 해시태그 6~12개
+""".strip()
+
+
+def _normalize_title(text: str) -> str:
+    cleaned = _clean_text(text)
+    if "\n" in text:
+        return "\n".join(_clean_text(line) for line in text.splitlines() if _clean_text(line))[:90]
+    return _line_break(cleaned[:80], 14)
+
+
+def _clean_caption(caption: str, hashtags: list[str]) -> str:
+    cleaned = "\n".join(line.rstrip() for line in caption.strip().splitlines() if line.strip())
+    hashtag_line = " ".join(hashtags)
+    if hashtag_line and hashtag_line not in cleaned:
+        cleaned = f"{cleaned}\n\n{hashtag_line}"
+    return cleaned[:1800]
+
+
+def _format_hashtag(value: str) -> str:
+    cleaned = "".join(ch for ch in value.strip() if ch.isalnum() or ch in {"_", "#"})
+    if not cleaned:
+        return "#"
+    if not cleaned.startswith("#"):
+        cleaned = f"#{cleaned}"
+    return cleaned[:30]
+
+
+def _clean_text(text: str) -> str:
+    return " ".join(text.split())
 
 
 def _infer_category(winner: RankedTrend) -> str:

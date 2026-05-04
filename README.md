@@ -163,7 +163,7 @@ python daily_content_pipeline.py
 GitHub Actions:
 
 - `.github/workflows/daily_content.yml`
-- 매일 11:37 UTC, 20:37 KST 자동 실행
+- 매일 10:40 UTC, 19:40 KST 자동 실행
 - `workflow_dispatch`로 수동 실행 가능
 
 실행 결과는 `output/<date>/` 아래에 저장됩니다.

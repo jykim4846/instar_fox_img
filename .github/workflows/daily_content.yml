@@ -5,7 +5,7 @@ env:
 
 on:
   schedule:
-    - cron: "37 11 * * *" # 매일 오후 8시 37분 KST (= 11:37 UTC)
+    - cron: "40 10 * * *" # 매일 오후 7시 40분 KST (= 10:40 UTC)
   workflow_dispatch:
 
 jobs:

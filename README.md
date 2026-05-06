@@ -160,6 +160,18 @@ python daily_content_pipeline.py --dry-run
 python daily_content_pipeline.py
 ```
 
+로컬 전용 실행:
+
+```bash
+python run_local_daily_content.py
+```
+
+이 명령은 기본적으로 렌더만 수행하고 Instagram에는 게시하지 않습니다. 실제 게시까지 하려면 `.env`에 `IG_USER_ID`, `META_ACCESS_TOKEN`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`을 넣은 뒤 명시적으로 실행합니다.
+
+```bash
+python run_local_daily_content.py --post
+```
+
 GitHub Actions:
 
 - `.github/workflows/daily_content.yml`

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 from pathlib import Path
@@ -36,8 +37,8 @@ class InstagramPoster:
 
     def post_carousel(self, image_paths: list[Path], caption: str) -> bool:
         try:
-            public_urls = [self._upload_to_cloudinary(path) for path in image_paths]
-            item_ids = [self._create_carousel_item_container(url) for url in public_urls]
+            public_urls = self._upload_carousel_images(image_paths)
+            item_ids = self._create_carousel_item_containers(public_urls)
             creation_id = self._create_carousel_container(item_ids, caption)
             self._publish(creation_id)
             self.logger.info("캐러셀 게시 성공 | %s장", len(image_paths))
@@ -68,6 +69,29 @@ class InstagramPoster:
         url = result["secure_url"]
         self.logger.info("Cloudinary 업로드 완료 | %s", url)
         return url
+
+    def _upload_carousel_images(self, image_paths: list[Path]) -> list[str]:
+        return self._parallel_ordered(
+            image_paths,
+            lambda path: self._upload_to_cloudinary(path),
+            "캐러셀 이미지 업로드",
+        )
+
+    def _create_carousel_item_containers(self, public_urls: list[str]) -> list[str]:
+        return self._parallel_ordered(
+            public_urls,
+            self._create_carousel_item_container,
+            "캐러셀 아이템 컨테이너 생성",
+        )
+
+    def _parallel_ordered(self, items: list, func, label: str) -> list:
+        max_workers = min(3, len(items))
+        if max_workers <= 1:
+            return [func(item) for item in items]
+
+        self.logger.info("%s 병렬 처리 시작 | items=%s | workers=%s", label, len(items), max_workers)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            return list(executor.map(func, items))
 
     def _create_media_container(self, image_url: str, caption: str) -> str:
         resp = requests.post(

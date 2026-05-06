@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jykim.estj-fox.daily-content</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/jongyeon.kim/Desktop/instar_fox_img/scripts/run_daily_content_local.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/jongyeon.kim/Desktop/instar_fox_img</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>19</integer>
+    <key>Minute</key>
+    <integer>40</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/jongyeon.kim/Desktop/instar_fox_img/logs/local_daily_content.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/jongyeon.kim/Desktop/instar_fox_img/logs/local_daily_content.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

@@ -8,8 +8,9 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>-lc</string>
-    <string>/Users/jongyeon.kim/Desktop/instar_fox_img/scripts/run_daily_content_local.sh</string>
+    <string>-l</string>
+    <string>-c</string>
+    <string>cd /Users/jongyeon.kim/Desktop/instar_fox_img &amp;&amp; echo "[$(/bin/date '+%Y-%m-%d %H:%M:%S %Z')] local daily content start" &amp;&amp; exec /Users/jongyeon.kim/Desktop/instar_fox_img/.venv/bin/python /Users/jongyeon.kim/Desktop/instar_fox_img/run_local_daily_content.py --post</string>
   </array>
 
   <key>WorkingDirectory</key>

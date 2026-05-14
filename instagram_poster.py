@@ -40,7 +40,7 @@ class InstagramPoster:
             public_urls = self._upload_carousel_images(image_paths)
             item_ids = self._create_carousel_item_containers(public_urls)
             creation_id = self._create_carousel_container(item_ids, caption)
-            self._publish(creation_id)
+            self._publish_carousel(creation_id)
             self.logger.info("캐러셀 게시 성공 | %s장", len(image_paths))
             return True
         except Exception as e:
@@ -178,6 +178,47 @@ class InstagramPoster:
         resp.raise_for_status()
         media_id = resp.json()["id"]
         self.logger.info("게시 완료 | media_id=%s", media_id)
+
+    def _publish_carousel(self, creation_id: str, max_wait: int = 60) -> None:
+        """캐러셀 children 처리 시간이 필요하므로 status polling 후 게시한다."""
+        for _ in range(max_wait // 5):
+            time.sleep(5)
+            resp = requests.get(
+                f"{self.GRAPH_URL}/{creation_id}",
+                params={
+                    "fields": "status_code",
+                    "access_token": self.access_token,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            status = resp.json().get("status_code")
+            self.logger.info("캐러셀 컨테이너 상태 | %s", status)
+            if status == "FINISHED":
+                break
+            if status == "ERROR":
+                raise RuntimeError("캐러셀 컨테이너 처리 실패")
+        else:
+            raise TimeoutError(f"캐러셀 컨테이너 준비 타임아웃 ({max_wait}초)")
+
+        resp = requests.post(
+            f"{self.GRAPH_URL}/{self.ig_user_id}/media_publish",
+            data={
+                "creation_id": creation_id,
+                "access_token": self.access_token,
+            },
+            timeout=30,
+        )
+        if not resp.ok:
+            self.logger.error(
+                "Meta Carousel Publish API 응답 | %s | %s | creation_id=%s",
+                resp.status_code,
+                resp.text,
+                creation_id,
+            )
+        resp.raise_for_status()
+        media_id = resp.json()["id"]
+        self.logger.info("캐러셀 게시 완료 | media_id=%s", media_id)
 
     def _publish_reel(self, creation_id: str, max_wait: int = 120) -> None:
         """릴스는 트랜스코딩이 필요하므로 status polling 후 게시한다."""

@@ -4,7 +4,7 @@ import html
 import json
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import requests
@@ -145,15 +145,43 @@ class RankedTrend:
     final_score: int
     angle: str
     hook: str
+    category: str = "trend"
 
 
-def collect_ranked_trends(logger, limit: int = 12) -> list[RankedTrend]:
+def collect_ranked_trends(
+    logger,
+    limit: int = 12,
+    *,
+    recent_canonicals: set[str] | None = None,
+    recent_categories: set[str] | None = None,
+) -> list[RankedTrend]:
     candidates = collect_trend_candidates(logger)
     grouped = _group_candidates(candidates)
     ranked = [score_candidate(keyword, items) for keyword, items in grouped.items()]
     ranked = [item for item in ranked if item.sensitivity_risk < 8 and item.final_score > 0]
+    if recent_canonicals or recent_categories:
+        ranked = [
+            _apply_cooldown(item, recent_canonicals or set(), recent_categories or set())
+            for item in ranked
+        ]
+        ranked = [item for item in ranked if item.final_score > 0]
     ranked.sort(key=lambda item: (-item.final_score, item.keyword))
     return ranked[:limit]
+
+
+def _apply_cooldown(
+    item: RankedTrend,
+    recent_canonicals: set[str],
+    recent_categories: set[str],
+) -> RankedTrend:
+    penalty = 0
+    if item.keyword in recent_canonicals:
+        penalty += 250
+    if item.category in recent_categories:
+        penalty += 80
+    if penalty == 0:
+        return item
+    return replace(item, final_score=item.final_score - penalty)
 
 
 def collect_trend_candidates(logger) -> list[TrendCandidate]:
@@ -204,6 +232,7 @@ def score_candidate(keyword: str, candidates: list[TrendCandidate]) -> RankedTre
         final_score=final_score,
         angle=_angle_for_category(category, keyword),
         hook=_hook_for_category(category, keyword),
+        category=category,
     )
 
 
